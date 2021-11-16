@@ -17,4 +17,5 @@ ________________________
 **sm_punmute** "Hedef"
 ________________________
 **cfg/ByDexter/Ex-basecomm.cfg**
+
 **sm_exbasecomm_webhook** "https://discord.com/api/webhooks/.........../............." "Discord Webhook"
