@@ -971,6 +971,7 @@ public void OnClientPostAdminCheck(int client)
 	}
 	else
 	{
+		ClientGag[client] = false;
 		pgag.Set(client, "0");
 	}
 	pmute.Get(client, sBuffer, 20);
@@ -980,6 +981,7 @@ public void OnClientPostAdminCheck(int client)
 	}
 	else
 	{
+		UnMute(client);
 		pmute.Set(client, "0");
 	}
 	sgag.Get(client, sBuffer, 20);
@@ -990,6 +992,7 @@ public void OnClientPostAdminCheck(int client)
 	}
 	else
 	{
+		ClientGag[client] = false;
 		sgag.Set(client, "0");
 	}
 	smute.Get(client, sBuffer, 20);
@@ -1000,6 +1003,7 @@ public void OnClientPostAdminCheck(int client)
 	}
 	else
 	{
+		UnMute(client);
 		smute.Set(client, "0");
 	}
 }
