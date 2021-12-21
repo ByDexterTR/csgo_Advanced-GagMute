@@ -2,6 +2,7 @@
 #include <clientprefs>
 #include <sdktools_voice>
 #include <discord>
+#include <basecomm>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -10,14 +11,14 @@ ConVar g_dc_webhook = null;
 Cookie pgag = null, pmute = null, sgag = null, smute = null, 
 pgags = null, pmutes = null, sgags = null, smutes = null;
 
-bool ClientGag[65] = { false, ... };
+bool ClientGag[65] = { false, ... }, ClientMute[65] = { false, ... };
 
 public Plugin myinfo = 
 {
 	name = "Gelişmiş Basecomm", 
 	author = "ByDexter", 
 	description = "", 
-	version = "1.0", 
+	version = "1.5", 
 	url = "https://steamcommunity.com/id/ByDexterTR - ByDexter#5494"
 };
 
@@ -54,6 +55,8 @@ public void OnPluginStart()
 	RegConsoleCmd("sm_cezalar", Command_Ceza, "");
 	RegConsoleCmd("sm_sdurum", Command_Ceza, "");
 	
+	AddCommandListener(Filter_Voicerecord, "+voicerecord");
+	
 	LoadTranslations("common.phrases");
 	
 	g_dc_webhook = CreateConVar("sm_exbasecomm_webhook", "https://discord.com/api/webhooks/.........../.............", "Discord webhook linkiniz");
@@ -63,6 +66,15 @@ public void OnPluginStart()
 	{
 		OnClientPostAdminCheck(i);
 	}
+}
+
+public Action Filter_Voicerecord(int client, const char[] command, int argc)
+{
+	if (ClientMute[client])
+	{
+		return Plugin_Stop;
+	}
+	return Plugin_Continue;
 }
 
 public Action Command_PUNSilence(int client, int args)
@@ -87,6 +99,7 @@ public Action Command_PUNSilence(int client, int args)
 	pgag.Set(Hedef, "0");
 	pmute.Set(Hedef, "0");
 	ClientGag[Hedef] = false;
+	BaseComm_SetClientGag(Hedef, false);
 	UnMute(Hedef);
 	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından PSilenceı kalktı.", Hedef, client);
 	SendDiscordPUNSilence(client, Hedef);
@@ -159,6 +172,7 @@ public Action Command_PSilence(int client, int args)
 	pgags.Set(Hedef, Arg2);
 	Mute(Hedef);
 	ClientGag[Hedef] = true;
+	BaseComm_SetClientGag(Hedef, true);
 	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından \x0E%s nedeniyle \x01PSilence yedi", Hedef, client, Arg2);
 	SendDiscordPSilence(client, Hedef, Arg2);
 	return Plugin_Handled;
@@ -207,15 +221,85 @@ void SendDiscordPSilence(int client, int target, char Arg2[128])
 
 public Action Command_Ceza(int client, int args)
 {
+	if (args == 0)
+	{
+		Panel panel = new Panel();
+		panel.SetTitle("★ Cezaların\n__________________________\n ");
+		char sBuffer[128], MenuFormat[128];
+		sgag.Get(client, sBuffer, 20);
+		if (StringToInt(sBuffer) > 0)
+		{
+			Format(MenuFormat, 128, "Süreli Gag: %s Dakika", sBuffer);
+			panel.DrawText(MenuFormat);
+			sgags.Get(client, sBuffer, 128);
+			Format(MenuFormat, 128, "Sebep: %s\n ", sBuffer);
+			panel.DrawText(MenuFormat);
+		}
+		else
+		{
+			panel.DrawText("Süreli Gag: Yok");
+		}
+		smute.Get(client, sBuffer, 20);
+		if (StringToInt(sBuffer) > 0)
+		{
+			Format(MenuFormat, 128, "Süreli Mute: %s Dakika", sBuffer);
+			panel.DrawText(MenuFormat);
+			smutes.Get(client, sBuffer, 128);
+			Format(MenuFormat, 128, "Sebep: %s\n ", sBuffer);
+			panel.DrawText(MenuFormat);
+		}
+		else
+		{
+			panel.DrawText("Süreli Mute: Yok");
+		}
+		panel.DrawText(" ");
+		pgag.Get(client, sBuffer, 20);
+		if (StringToInt(sBuffer) > 0)
+		{
+			pgags.Get(client, sBuffer, 128);
+			Format(MenuFormat, 128, "Perma Gag: Var\nSebep: %s\n ", sBuffer);
+			panel.DrawText(MenuFormat);
+		}
+		else
+		{
+			panel.DrawText("Perma Gag: Yok");
+		}
+		pmute.Get(client, sBuffer, 20);
+		if (StringToInt(sBuffer) > 0)
+		{
+			pmutes.Get(client, sBuffer, 128);
+			Format(MenuFormat, 128, "Perma Mute: Var\nSebep: %s\n ", sBuffer);
+			panel.DrawText(MenuFormat);
+		}
+		else
+		{
+			Format(MenuFormat, 128, "Perma Mute: Yok\n ");
+			panel.DrawText(MenuFormat);
+		}
+		panel.DrawItem("Kapat");
+		panel.Send(client, Panel_CallBack, 0);
+		delete panel;
+		return Plugin_Handled;
+	}
+	char arg1[128]; GetCmdArg(1, arg1, 128);
+	int Hedef = FindTarget(client, arg1, true, false);
+	
+	if (Hedef == -1 || !IsValidClient(Hedef))
+	{
+		ReplyToCommand(client, "[SM] Geçersiz bir hedef.");
+		return Plugin_Handled;
+	}
+	
 	Panel panel = new Panel();
-	panel.SetTitle("★ Cezaların\n__________________________\n ");
+	Format(arg1, 128, "★ %N kişisinin Cezaları\n__________________________\n ", Hedef);
+	panel.SetTitle(arg1);
 	char sBuffer[128], MenuFormat[128];
-	sgag.Get(client, sBuffer, 20);
+	sgag.Get(Hedef, sBuffer, 20);
 	if (StringToInt(sBuffer) > 0)
 	{
 		Format(MenuFormat, 128, "Süreli Gag: %s Dakika", sBuffer);
 		panel.DrawText(MenuFormat);
-		sgags.Get(client, sBuffer, 128);
+		sgags.Get(Hedef, sBuffer, 128);
 		Format(MenuFormat, 128, "Sebep: %s\n ", sBuffer);
 		panel.DrawText(MenuFormat);
 	}
@@ -223,12 +307,12 @@ public Action Command_Ceza(int client, int args)
 	{
 		panel.DrawText("Süreli Gag: Yok");
 	}
-	smute.Get(client, sBuffer, 20);
+	smute.Get(Hedef, sBuffer, 20);
 	if (StringToInt(sBuffer) > 0)
 	{
 		Format(MenuFormat, 128, "Süreli Mute: %s Dakika", sBuffer);
 		panel.DrawText(MenuFormat);
-		smutes.Get(client, sBuffer, 128);
+		smutes.Get(Hedef, sBuffer, 128);
 		Format(MenuFormat, 128, "Sebep: %s\n ", sBuffer);
 		panel.DrawText(MenuFormat);
 	}
@@ -237,10 +321,10 @@ public Action Command_Ceza(int client, int args)
 		panel.DrawText("Süreli Mute: Yok");
 	}
 	panel.DrawText(" ");
-	pgag.Get(client, sBuffer, 20);
+	pgag.Get(Hedef, sBuffer, 20);
 	if (StringToInt(sBuffer) > 0)
 	{
-		pgags.Get(client, sBuffer, 128);
+		pgags.Get(Hedef, sBuffer, 128);
 		Format(MenuFormat, 128, "Perma Gag: Var\nSebep: %s\n ", sBuffer);
 		panel.DrawText(MenuFormat);
 	}
@@ -248,10 +332,10 @@ public Action Command_Ceza(int client, int args)
 	{
 		panel.DrawText("Perma Gag: Yok");
 	}
-	pmute.Get(client, sBuffer, 20);
+	pmute.Get(Hedef, sBuffer, 20);
 	if (StringToInt(sBuffer) > 0)
 	{
-		pmutes.Get(client, sBuffer, 128);
+		pmutes.Get(Hedef, sBuffer, 128);
 		Format(MenuFormat, 128, "Perma Mute: Var\nSebep: %s\n ", sBuffer);
 		panel.DrawText(MenuFormat);
 	}
@@ -291,6 +375,7 @@ public Action Command_SUNGag(int client, int args)
 	
 	sgag.Set(Hedef, "-3");
 	ClientGag[Hedef] = false;
+	BaseComm_SetClientGag(Hedef, false);
 	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından SGagı kalktı.", Hedef, client);
 	SendDiscordSUNGag(client, Hedef);
 	return Plugin_Handled;
@@ -1058,9 +1143,13 @@ void UnMute(int client)
 			SetClientListeningFlags(client, VOICE_NORMAL);
 		}
 	}
+	BaseComm_SetClientMute(client, false);
+	ClientMute[client] = false;
 }
 
 void Mute(int client)
 {
 	SetClientListeningFlags(client, VOICE_MUTED);
+	BaseComm_SetClientMute(client, true);
+	ClientMute[client] = true;
 } 
