@@ -100,6 +100,8 @@ public Action Command_PUNSilence(int client, int args)
 	pmute.Set(Hedef, "0");
 	ClientGag[Hedef] = false;
 	BaseComm_SetClientGag(Hedef, false);
+	ClientMute[Hedef] = false;
+	BaseComm_SetClientMute(Hedef, false);
 	UnMute(Hedef);
 	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından PSilenceı kalktı.", Hedef, client);
 	SendDiscordPUNSilence(client, Hedef);
@@ -450,6 +452,7 @@ public Action Command_SUNMute(int client, int args)
 	
 	smute.Set(Hedef, "-3");
 	UnMute(Hedef);
+	BaseComm_SetClientMute(Hedef, false);
 	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından SMutesi kalktı.", Hedef, client);
 	SendDiscordSUNMute(client, Hedef);
 	return Plugin_Handled;
@@ -514,6 +517,7 @@ public Action Command_PUNMute(int client, int args)
 	
 	pmute.Set(Hedef, "0");
 	UnMute(Hedef);
+	BaseComm_SetClientMute(Hedef, false);
 	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından PMutesi kalktı.", Hedef, client);
 	SendDiscordPUNMute(client, Hedef);
 	return Plugin_Handled;
@@ -578,6 +582,7 @@ public Action Command_PUNGag(int client, int args)
 	
 	pgag.Set(Hedef, "0");
 	ClientGag[Hedef] = false;
+	BaseComm_SetClientGag(Hedef, false);
 	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından PGagı kalktı.", Hedef, client);
 	SendDiscordPUNGag(client, Hedef);
 	return Plugin_Handled;
@@ -646,6 +651,7 @@ public Action Command_PGag(int client, int args)
 	GetCmdArg(2, Arg2, 128);
 	pgags.Set(Hedef, Arg2);
 	ClientGag[Hedef] = true;
+	BaseComm_SetClientGag(Hedef, true);
 	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından \x0E%s nedeniyle \x01PGag yedi", Hedef, client, Arg2);
 	SendDiscordPGag(client, Hedef, Arg2);
 	return Plugin_Handled;
@@ -716,6 +722,7 @@ public Action Command_PMute(int client, int args)
 	GetCmdArg(2, Arg2, 128);
 	pmutes.Set(Hedef, Arg2);
 	Mute(Hedef);
+	BaseComm_SetClientMute(Hedef, false);
 	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından \x0E%s nedeniyle \x01PMute yedi", Hedef, client, Arg2);
 	SendDiscordPMute(client, Hedef, Arg2);
 	return Plugin_Handled;
@@ -797,6 +804,7 @@ public Action Command_SGag(int client, int args)
 	sgags.Set(Hedef, Arg3);
 	
 	ClientGag[Hedef] = true;
+	BaseComm_SetClientGag(Hedef, true);
 	CreateTimer(60.0, SGagAzalt, GetClientUserId(Hedef), TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
 	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından \x0E%s nedeniyle \x04%d Dakika \x01Gag yedi", Hedef, client, Arg3, StringToInt(Arg2));
 	SendDiscordSGag(client, Hedef, StringToInt(Arg2), Arg3);
@@ -939,6 +947,8 @@ public Action Command_SMute(int client, int args)
 	smutes.Set(Hedef, Arg3);
 	
 	Mute(Hedef);
+	ClientMute[client] = true;
+	BaseComm_SetClientMute(Hedef, false);
 	CreateTimer(60.0, SMuteAzalt, GetClientUserId(Hedef), TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
 	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından \x0E%s nedeniyle \x04%d Dakika \x01Mute yedi", Hedef, client, Arg3, StringToInt(Arg2));
 	SendDiscordSMute(client, Hedef, StringToInt(Arg2), Arg3);
@@ -1050,8 +1060,9 @@ public void OnClientPostAdminCheck(int client)
 {
 	char sBuffer[20];
 	pgag.Get(client, sBuffer, 20);
-	if (StringToInt(sBuffer) > 0)
+	if (StringToInt(sBuffer) == 1)
 	{
+		BaseComm_SetClientGag(client, true);
 		ClientGag[client] = true;
 	}
 	else
@@ -1060,9 +1071,11 @@ public void OnClientPostAdminCheck(int client)
 		pgag.Set(client, "0");
 	}
 	pmute.Get(client, sBuffer, 20);
-	if (StringToInt(sBuffer) > 0)
+	if (StringToInt(sBuffer) == 1)
 	{
 		Mute(client);
+		ClientMute[client] = true;
+		BaseComm_SetClientMute(client, true);
 	}
 	else
 	{
@@ -1074,6 +1087,7 @@ public void OnClientPostAdminCheck(int client)
 	{
 		CreateTimer(60.0, SGagAzalt, GetClientUserId(client), TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
 		ClientGag[client] = true;
+		BaseComm_SetClientGag(client, true);
 	}
 	else
 	{
@@ -1085,6 +1099,7 @@ public void OnClientPostAdminCheck(int client)
 	{
 		CreateTimer(60.0, SMuteAzalt, GetClientUserId(client), TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
 		Mute(client);
+		BaseComm_SetClientMute(client, true);
 	}
 	else
 	{
