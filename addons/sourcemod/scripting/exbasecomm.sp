@@ -13,12 +13,19 @@ pgags = null, pmutes = null, sgags = null, smutes = null;
 
 bool ClientGag[65] = { false, ... }, ClientMute[65] = { false, ... };
 
+#include "thi/pgag.sp"
+#include "thi/pmute.sp"
+#include "thi/psilence.sp"
+
+#include "thi/sgag.sp"
+#include "thi/smute.sp"
+
 public Plugin myinfo = 
 {
 	name = "Gelişmiş Basecomm", 
 	author = "ByDexter", 
 	description = "", 
-	version = "1.5", 
+	version = "1.6", 
 	url = "https://steamcommunity.com/id/ByDexterTR - ByDexter#5494"
 };
 
@@ -68,157 +75,56 @@ public void OnPluginStart()
 	}
 }
 
-public Action Filter_Voicerecord(int client, const char[] command, int argc)
+public void OnClientPostAdminCheck(int client)
 {
-	if (ClientMute[client])
+	char sBuffer[20];
+	pgag.Get(client, sBuffer, 20);
+	if (StringToInt(sBuffer) == 1)
 	{
-		return Plugin_Stop;
+		BaseComm_SetClientGag(client, true);
+		ClientGag[client] = true;
 	}
-	return Plugin_Continue;
-}
-
-public Action Command_PUNSilence(int client, int args)
-{
-	if (args < 1)
+	else
 	{
-		ReplyToCommand(client, "[SM] Kullanım: sm_punsilence <Hedef>");
-		return Plugin_Handled;
+		ClientGag[client] = false;
+		pgag.Set(client, "0");
 	}
-	
-	char Arg1[128];
-	GetCmdArg(1, Arg1, 128);
-	
-	int Hedef = FindTarget(client, Arg1, true, false);
-	
-	if (Hedef == -1 || !IsValidClient(Hedef))
+	pmute.Get(client, sBuffer, 20);
+	if (StringToInt(sBuffer) == 1)
 	{
-		ReplyToCommand(client, "[SM] Geçersiz bir hedef.");
-		return Plugin_Handled;
+		Mute(client);
+		ClientMute[client] = true;
+		BaseComm_SetClientMute(client, true);
 	}
-	
-	pgag.Set(Hedef, "0");
-	pmute.Set(Hedef, "0");
-	ClientGag[Hedef] = false;
-	BaseComm_SetClientGag(Hedef, false);
-	ClientMute[Hedef] = false;
-	BaseComm_SetClientMute(Hedef, false);
-	UnMute(Hedef);
-	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından PSilenceı kalktı.", Hedef, client);
-	SendDiscordPUNSilence(client, Hedef);
-	return Plugin_Handled;
-}
-
-void SendDiscordPUNSilence(int client, int target)
-{
-	char webhook[1024];
-	g_dc_webhook.GetString(webhook, sizeof(webhook));
-	
-	char ClientSteamid[128];
-	GetClientAuthId(client, AuthId_Steam2, ClientSteamid, 128);
-	char ClientName[128];
-	GetClientName(client, ClientName, 128);
-	char ClientSteam[128];
-	GetCommunityID(ClientSteamid, ClientSteam, 128);
-	Format(ClientSteam, 128, "http://steamcommunity.com/profiles/%s", ClientSteam);
-	
-	char TargetSteamid[128];
-	GetClientAuthId(target, AuthId_Steam2, TargetSteamid, 128);
-	char TargetName[128];
-	GetClientName(target, TargetName, 128);
-	char TargetSteam[128];
-	GetCommunityID(TargetSteamid, TargetSteam, 128);
-	Format(TargetSteam, 128, "http://steamcommunity.com/profiles/%s", TargetSteam);
-	
-	char EmbedFormat[256];
-	DiscordWebHook hook = new DiscordWebHook(webhook);
-	hook.SlackMode = true;
-	MessageEmbed Embed = new MessageEmbed();
-	Embed.SetColor("#00a3ff");
-	Embed.SetFooter("-ByDexter");
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", ClientName, ClientSteamid, ClientSteam);
-	Embed.AddField(":small_blue_diamond: Yetkili:", EmbedFormat, true);
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", TargetName, TargetSteamid, TargetSteam);
-	Embed.AddField(":small_orange_diamond: Cezası Kaldırılan:", EmbedFormat, true);
-	hook.Embed(Embed);
-	hook.SetUsername("Perma Silence");
-	
-	hook.Send();
-	delete hook;
-}
-
-public Action Command_PSilence(int client, int args)
-{
-	if (args < 2)
+	else
 	{
-		ReplyToCommand(client, "[SM] Kullanım: sm_psilence <Hedef> <Sebep>");
-		return Plugin_Handled;
+		ClientMute[client] = false;
+		pmute.Set(client, "0");
 	}
-	
-	char Arg1[128];
-	GetCmdArg(1, Arg1, 128);
-	
-	int Hedef = FindTarget(client, Arg1, true, false);
-	
-	if (Hedef == -1 || !IsValidClient(Hedef))
+	sgag.Get(client, sBuffer, 20);
+	if (StringToInt(sBuffer) > 0)
 	{
-		ReplyToCommand(client, "[SM] Geçersiz bir hedef.");
-		return Plugin_Handled;
+		CreateTimer(60.0, SGagAzalt, GetClientUserId(client), TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
+		ClientGag[client] = true;
+		BaseComm_SetClientGag(client, true);
 	}
-	
-	pmute.Set(Hedef, "1");
-	pgag.Set(Hedef, "1");
-	
-	char Arg2[128];
-	GetCmdArg(2, Arg2, 128);
-	pmutes.Set(Hedef, Arg2);
-	pgags.Set(Hedef, Arg2);
-	Mute(Hedef);
-	ClientGag[Hedef] = true;
-	BaseComm_SetClientGag(Hedef, true);
-	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından \x0E%s nedeniyle \x01PSilence yedi", Hedef, client, Arg2);
-	SendDiscordPSilence(client, Hedef, Arg2);
-	return Plugin_Handled;
-}
-
-void SendDiscordPSilence(int client, int target, char Arg2[128])
-{
-	char webhook[1024];
-	g_dc_webhook.GetString(webhook, sizeof(webhook));
-	
-	char ClientSteamid[128];
-	GetClientAuthId(client, AuthId_Steam2, ClientSteamid, 128);
-	char ClientName[128];
-	GetClientName(client, ClientName, 128);
-	char ClientSteam[128];
-	GetCommunityID(ClientSteamid, ClientSteam, 128);
-	Format(ClientSteam, 128, "http://steamcommunity.com/profiles/%s", ClientSteam);
-	
-	char TargetSteamid[128];
-	GetClientAuthId(target, AuthId_Steam2, TargetSteamid, 128);
-	char TargetName[128];
-	GetClientName(target, TargetName, 128);
-	char TargetSteam[128];
-	GetCommunityID(TargetSteamid, TargetSteam, 128);
-	Format(TargetSteam, 128, "http://steamcommunity.com/profiles/%s", TargetSteam);
-	
-	char EmbedFormat[256];
-	DiscordWebHook hook = new DiscordWebHook(webhook);
-	hook.SlackMode = true;
-	MessageEmbed Embed = new MessageEmbed();
-	Embed.SetColor("#a300ff");
-	Embed.SetFooter("-ByDexter");
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", ClientName, ClientSteamid, ClientSteam);
-	Embed.AddField(":small_blue_diamond: Yetkili:", EmbedFormat, true);
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", TargetName, TargetSteamid, TargetSteam);
-	Embed.AddField(":small_orange_diamond: Ceza Alan:", EmbedFormat, true);
-	Embed.AddField(" ", " ", false);
-	Embed.AddField(":receipt: Sebep:", Arg2, true);
-	Embed.AddField(":globe_with_meridians: Süre:", "Kalıcı", true);
-	hook.Embed(Embed);
-	hook.SetUsername("Perma Silence");
-	
-	hook.Send();
-	delete hook;
+	else
+	{
+		ClientGag[client] = false;
+		sgag.Set(client, "0");
+	}
+	smute.Get(client, sBuffer, 20);
+	if (StringToInt(sBuffer) > 0)
+	{
+		CreateTimer(60.0, SMuteAzalt, GetClientUserId(client), TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
+		Mute(client);
+		BaseComm_SetClientMute(client, true);
+	}
+	else
+	{
+		ClientMute[client] = false;
+		smute.Set(client, "0");
+	}
 }
 
 public Action Command_Ceza(int client, int args)
@@ -284,7 +190,7 @@ public Action Command_Ceza(int client, int args)
 		return Plugin_Handled;
 	}
 	char arg1[128]; GetCmdArg(1, arg1, 128);
-	int Hedef = FindTarget(client, arg1, true, false);
+	int Hedef = FindTarget(client, arg1, true, true);
 	
 	if (Hedef == -1 || !IsValidClient(Hedef))
 	{
@@ -356,758 +262,6 @@ public int Panel_CallBack(Menu panel, MenuAction action, int client, int positio
 {
 }
 
-public Action Command_SUNGag(int client, int args)
-{
-	if (args < 1)
-	{
-		ReplyToCommand(client, "[SM] Kullanım: sm_sungag <Hedef>");
-		return Plugin_Handled;
-	}
-	
-	char Arg1[128];
-	GetCmdArg(1, Arg1, 128);
-	
-	int Hedef = FindTarget(client, Arg1, true, false);
-	
-	if (Hedef == -1 || !IsValidClient(Hedef))
-	{
-		ReplyToCommand(client, "[SM] Geçersiz bir hedef.");
-		return Plugin_Handled;
-	}
-	
-	sgag.Set(Hedef, "-3");
-	ClientGag[Hedef] = false;
-	BaseComm_SetClientGag(Hedef, false);
-	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından SGagı kalktı.", Hedef, client);
-	SendDiscordSUNGag(client, Hedef);
-	return Plugin_Handled;
-}
-
-void SendDiscordSUNGag(int client, int target)
-{
-	char webhook[1024];
-	g_dc_webhook.GetString(webhook, sizeof(webhook));
-	
-	char ClientSteamid[128];
-	GetClientAuthId(client, AuthId_Steam2, ClientSteamid, 128);
-	char ClientName[128];
-	GetClientName(client, ClientName, 128);
-	char ClientSteam[128];
-	GetCommunityID(ClientSteamid, ClientSteam, 128);
-	Format(ClientSteam, 128, "http://steamcommunity.com/profiles/%s", ClientSteam);
-	
-	char TargetSteamid[128];
-	GetClientAuthId(target, AuthId_Steam2, TargetSteamid, 128);
-	char TargetName[128];
-	GetClientName(target, TargetName, 128);
-	char TargetSteam[128];
-	GetCommunityID(TargetSteamid, TargetSteam, 128);
-	Format(TargetSteam, 128, "http://steamcommunity.com/profiles/%s", TargetSteam);
-	
-	char EmbedFormat[256];
-	DiscordWebHook hook = new DiscordWebHook(webhook);
-	hook.SlackMode = true;
-	MessageEmbed Embed = new MessageEmbed();
-	Embed.SetColor("#00a3ff");
-	Embed.SetFooter("-ByDexter");
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", ClientName, ClientSteamid, ClientSteam);
-	Embed.AddField(":small_blue_diamond: Yetkili:", EmbedFormat, true);
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", TargetName, TargetSteamid, TargetSteam);
-	Embed.AddField(":small_orange_diamond: Cezası Kaldırılan:", EmbedFormat, true);
-	hook.Embed(Embed);
-	hook.SetUsername("Süreli Gag");
-	
-	hook.Send();
-	delete hook;
-}
-
-public Action OnClientSayCommand(int client, const char[] command, const char[] sArgs)
-{
-	if (ClientGag[client])
-	{
-		PrintToChat(client, "[SM] Cezalı olduğun için yazı yazamazsın.");
-		return Plugin_Handled;
-	}
-	return Plugin_Continue;
-}
-
-public Action Command_SUNMute(int client, int args)
-{
-	if (args < 1)
-	{
-		ReplyToCommand(client, "[SM] Kullanım: sm_sunmute <Hedef>");
-		return Plugin_Handled;
-	}
-	
-	char Arg1[128];
-	GetCmdArg(1, Arg1, 128);
-	
-	int Hedef = FindTarget(client, Arg1, true, false);
-	
-	if (Hedef == -1 || !IsValidClient(Hedef))
-	{
-		ReplyToCommand(client, "[SM] Geçersiz bir hedef.");
-		return Plugin_Handled;
-	}
-	
-	smute.Set(Hedef, "-3");
-	UnMute(Hedef);
-	BaseComm_SetClientMute(Hedef, false);
-	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından SMutesi kalktı.", Hedef, client);
-	SendDiscordSUNMute(client, Hedef);
-	return Plugin_Handled;
-}
-
-void SendDiscordSUNMute(int client, int target)
-{
-	char webhook[1024];
-	g_dc_webhook.GetString(webhook, sizeof(webhook));
-	
-	char ClientSteamid[128];
-	GetClientAuthId(client, AuthId_Steam2, ClientSteamid, 128);
-	char ClientName[128];
-	GetClientName(client, ClientName, 128);
-	char ClientSteam[128];
-	GetCommunityID(ClientSteamid, ClientSteam, 128);
-	Format(ClientSteam, 128, "http://steamcommunity.com/profiles/%s", ClientSteam);
-	
-	char TargetSteamid[128];
-	GetClientAuthId(target, AuthId_Steam2, TargetSteamid, 128);
-	char TargetName[128];
-	GetClientName(target, TargetName, 128);
-	char TargetSteam[128];
-	GetCommunityID(TargetSteamid, TargetSteam, 128);
-	Format(TargetSteam, 128, "http://steamcommunity.com/profiles/%s", TargetSteam);
-	
-	char EmbedFormat[256];
-	DiscordWebHook hook = new DiscordWebHook(webhook);
-	hook.SlackMode = true;
-	MessageEmbed Embed = new MessageEmbed();
-	Embed.SetColor("#00a3ff");
-	Embed.SetFooter("-ByDexter");
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", ClientName, ClientSteamid, ClientSteam);
-	Embed.AddField(":small_blue_diamond: Yetkili:", EmbedFormat, true);
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", TargetName, TargetSteamid, TargetSteam);
-	Embed.AddField(":small_orange_diamond: Cezası Kaldırılan:", EmbedFormat, true);
-	hook.Embed(Embed);
-	hook.SetUsername("Süreli Mute");
-	
-	hook.Send();
-	delete hook;
-}
-
-public Action Command_PUNMute(int client, int args)
-{
-	if (args < 1)
-	{
-		ReplyToCommand(client, "[SM] Kullanım: sm_punmute <Hedef>");
-		return Plugin_Handled;
-	}
-	
-	char Arg1[128];
-	GetCmdArg(1, Arg1, 128);
-	
-	int Hedef = FindTarget(client, Arg1, true, false);
-	
-	if (Hedef == -1 || !IsValidClient(Hedef))
-	{
-		ReplyToCommand(client, "[SM] Geçersiz bir hedef.");
-		return Plugin_Handled;
-	}
-	
-	pmute.Set(Hedef, "0");
-	UnMute(Hedef);
-	BaseComm_SetClientMute(Hedef, false);
-	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından PMutesi kalktı.", Hedef, client);
-	SendDiscordPUNMute(client, Hedef);
-	return Plugin_Handled;
-}
-
-void SendDiscordPUNMute(int client, int target)
-{
-	char webhook[1024];
-	g_dc_webhook.GetString(webhook, sizeof(webhook));
-	
-	char ClientSteamid[128];
-	GetClientAuthId(client, AuthId_Steam2, ClientSteamid, 128);
-	char ClientName[128];
-	GetClientName(client, ClientName, 128);
-	char ClientSteam[128];
-	GetCommunityID(ClientSteamid, ClientSteam, 128);
-	Format(ClientSteam, 128, "http://steamcommunity.com/profiles/%s", ClientSteam);
-	
-	char TargetSteamid[128];
-	GetClientAuthId(target, AuthId_Steam2, TargetSteamid, 128);
-	char TargetName[128];
-	GetClientName(target, TargetName, 128);
-	char TargetSteam[128];
-	GetCommunityID(TargetSteamid, TargetSteam, 128);
-	Format(TargetSteam, 128, "http://steamcommunity.com/profiles/%s", TargetSteam);
-	
-	char EmbedFormat[256];
-	DiscordWebHook hook = new DiscordWebHook(webhook);
-	hook.SlackMode = true;
-	MessageEmbed Embed = new MessageEmbed();
-	Embed.SetColor("#00a3ff");
-	Embed.SetFooter("-ByDexter");
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", ClientName, ClientSteamid, ClientSteam);
-	Embed.AddField(":small_blue_diamond: Yetkili:", EmbedFormat, true);
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", TargetName, TargetSteamid, TargetSteam);
-	Embed.AddField(":small_orange_diamond: Cezası Kaldırılan:", EmbedFormat, true);
-	hook.Embed(Embed);
-	hook.SetUsername("Perma Mute");
-	
-	hook.Send();
-	delete hook;
-}
-
-public Action Command_PUNGag(int client, int args)
-{
-	if (args < 1)
-	{
-		ReplyToCommand(client, "[SM] Kullanım: sm_pungag <Hedef>");
-		return Plugin_Handled;
-	}
-	
-	char Arg1[128];
-	GetCmdArg(1, Arg1, 128);
-	
-	int Hedef = FindTarget(client, Arg1, true, false);
-	
-	if (Hedef == -1 || !IsValidClient(Hedef))
-	{
-		ReplyToCommand(client, "[SM] Geçersiz bir hedef.");
-		return Plugin_Handled;
-	}
-	
-	pgag.Set(Hedef, "0");
-	ClientGag[Hedef] = false;
-	BaseComm_SetClientGag(Hedef, false);
-	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından PGagı kalktı.", Hedef, client);
-	SendDiscordPUNGag(client, Hedef);
-	return Plugin_Handled;
-}
-
-void SendDiscordPUNGag(int client, int target)
-{
-	char webhook[1024];
-	g_dc_webhook.GetString(webhook, sizeof(webhook));
-	
-	char ClientSteamid[128];
-	GetClientAuthId(client, AuthId_Steam2, ClientSteamid, 128);
-	char ClientName[128];
-	GetClientName(client, ClientName, 128);
-	char ClientSteam[128];
-	GetCommunityID(ClientSteamid, ClientSteam, 128);
-	Format(ClientSteam, 128, "http://steamcommunity.com/profiles/%s", ClientSteam);
-	
-	char TargetSteamid[128];
-	GetClientAuthId(target, AuthId_Steam2, TargetSteamid, 128);
-	char TargetName[128];
-	GetClientName(target, TargetName, 128);
-	char TargetSteam[128];
-	GetCommunityID(TargetSteamid, TargetSteam, 128);
-	Format(TargetSteam, 128, "http://steamcommunity.com/profiles/%s", TargetSteam);
-	
-	char EmbedFormat[256];
-	DiscordWebHook hook = new DiscordWebHook(webhook);
-	hook.SlackMode = true;
-	MessageEmbed Embed = new MessageEmbed();
-	Embed.SetColor("#00a3ff");
-	Embed.SetFooter("-ByDexter");
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", ClientName, ClientSteamid, ClientSteam);
-	Embed.AddField(":small_blue_diamond: Yetkili:", EmbedFormat, true);
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", TargetName, TargetSteamid, TargetSteam);
-	Embed.AddField(":small_orange_diamond: Cezası Kaldırılan:", EmbedFormat, true);
-	hook.Embed(Embed);
-	hook.SetUsername("Perma Gag");
-	
-	hook.Send();
-	delete hook;
-}
-
-public Action Command_PGag(int client, int args)
-{
-	if (args < 2)
-	{
-		ReplyToCommand(client, "[SM] Kullanım: sm_pgag <Hedef> <Sebep>");
-		return Plugin_Handled;
-	}
-	
-	char Arg1[128];
-	GetCmdArg(1, Arg1, 128);
-	
-	int Hedef = FindTarget(client, Arg1, true, false);
-	
-	if (Hedef == -1 || !IsValidClient(Hedef))
-	{
-		ReplyToCommand(client, "[SM] Geçersiz bir hedef.");
-		return Plugin_Handled;
-	}
-	
-	pgag.Set(Hedef, "1");
-	
-	char Arg2[128];
-	GetCmdArg(2, Arg2, 128);
-	pgags.Set(Hedef, Arg2);
-	ClientGag[Hedef] = true;
-	BaseComm_SetClientGag(Hedef, true);
-	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından \x0E%s nedeniyle \x01PGag yedi", Hedef, client, Arg2);
-	SendDiscordPGag(client, Hedef, Arg2);
-	return Plugin_Handled;
-}
-
-void SendDiscordPGag(int client, int target, char Arg2[128])
-{
-	char webhook[1024];
-	g_dc_webhook.GetString(webhook, sizeof(webhook));
-	
-	char ClientSteamid[128];
-	GetClientAuthId(client, AuthId_Steam2, ClientSteamid, 128);
-	char ClientName[128];
-	GetClientName(client, ClientName, 128);
-	char ClientSteam[128];
-	GetCommunityID(ClientSteamid, ClientSteam, 128);
-	Format(ClientSteam, 128, "http://steamcommunity.com/profiles/%s", ClientSteam);
-	
-	char TargetSteamid[128];
-	GetClientAuthId(target, AuthId_Steam2, TargetSteamid, 128);
-	char TargetName[128];
-	GetClientName(target, TargetName, 128);
-	char TargetSteam[128];
-	GetCommunityID(TargetSteamid, TargetSteam, 128);
-	Format(TargetSteam, 128, "http://steamcommunity.com/profiles/%s", TargetSteam);
-	
-	char EmbedFormat[256];
-	DiscordWebHook hook = new DiscordWebHook(webhook);
-	hook.SlackMode = true;
-	MessageEmbed Embed = new MessageEmbed();
-	Embed.SetColor("#a300ff");
-	Embed.SetFooter("-ByDexter");
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", ClientName, ClientSteamid, ClientSteam);
-	Embed.AddField(":small_blue_diamond: Yetkili:", EmbedFormat, true);
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", TargetName, TargetSteamid, TargetSteam);
-	Embed.AddField(":small_orange_diamond: Ceza Alan:", EmbedFormat, true);
-	Embed.AddField(" ", " ", false);
-	Embed.AddField(":receipt: Sebep:", Arg2, true);
-	Embed.AddField(":globe_with_meridians: Süre:", "Kalıcı", true);
-	hook.Embed(Embed);
-	hook.SetUsername("Perma Gag");
-	
-	hook.Send();
-	delete hook;
-}
-
-public Action Command_PMute(int client, int args)
-{
-	if (args < 2)
-	{
-		ReplyToCommand(client, "[SM] Kullanım: sm_pmute <Hedef> <Sebep>");
-		return Plugin_Handled;
-	}
-	
-	char Arg1[128];
-	GetCmdArg(1, Arg1, 128);
-	
-	int Hedef = FindTarget(client, Arg1, true, false);
-	
-	if (Hedef == -1 || !IsValidClient(Hedef))
-	{
-		ReplyToCommand(client, "[SM] Geçersiz bir hedef.");
-		return Plugin_Handled;
-	}
-	pmute.Set(Hedef, "1");
-	
-	char Arg2[128];
-	GetCmdArg(2, Arg2, 128);
-	pmutes.Set(Hedef, Arg2);
-	Mute(Hedef);
-	BaseComm_SetClientMute(Hedef, false);
-	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından \x0E%s nedeniyle \x01PMute yedi", Hedef, client, Arg2);
-	SendDiscordPMute(client, Hedef, Arg2);
-	return Plugin_Handled;
-}
-
-void SendDiscordPMute(int client, int target, char Arg2[128])
-{
-	char webhook[1024];
-	g_dc_webhook.GetString(webhook, sizeof(webhook));
-	
-	char ClientSteamid[128];
-	GetClientAuthId(client, AuthId_Steam2, ClientSteamid, 128);
-	char ClientName[128];
-	GetClientName(client, ClientName, 128);
-	char ClientSteam[128];
-	GetCommunityID(ClientSteamid, ClientSteam, 128);
-	Format(ClientSteam, 128, "http://steamcommunity.com/profiles/%s", ClientSteam);
-	
-	char TargetSteamid[128];
-	GetClientAuthId(target, AuthId_Steam2, TargetSteamid, 128);
-	char TargetName[128];
-	GetClientName(target, TargetName, 128);
-	char TargetSteam[128];
-	GetCommunityID(TargetSteamid, TargetSteam, 128);
-	Format(TargetSteam, 128, "http://steamcommunity.com/profiles/%s", TargetSteam);
-	
-	char EmbedFormat[256];
-	DiscordWebHook hook = new DiscordWebHook(webhook);
-	hook.SlackMode = true;
-	MessageEmbed Embed = new MessageEmbed();
-	Embed.SetColor("#a300ff");
-	Embed.SetFooter("-ByDexter");
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", ClientName, ClientSteamid, ClientSteam);
-	Embed.AddField(":small_blue_diamond: Yetkili:", EmbedFormat, true);
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", TargetName, TargetSteamid, TargetSteam);
-	Embed.AddField(":small_orange_diamond: Ceza Alan:", EmbedFormat, true);
-	Embed.AddField(" ", " ", false);
-	Embed.AddField(":receipt: Sebep:", Arg2, true);
-	Embed.AddField(":globe_with_meridians: Süre:", "Kalıcı", true);
-	hook.Embed(Embed);
-	hook.SetUsername("Perma Mute");
-	
-	hook.Send();
-	delete hook;
-}
-
-public Action Command_SGag(int client, int args)
-{
-	if (args < 3)
-	{
-		ReplyToCommand(client, "[SM] Kullanım: sm_sgag <Hedef> <Dakika> <Sebep>");
-		return Plugin_Handled;
-	}
-	
-	char Arg1[128];
-	GetCmdArg(1, Arg1, 128);
-	
-	int Hedef = FindTarget(client, Arg1, true, false);
-	
-	if (Hedef == -1)
-	{
-		ReplyToCommand(client, "[SM] Geçersiz bir hedef.");
-		return Plugin_Handled;
-	}
-	
-	char Arg2[20];
-	GetCmdArg(2, Arg2, 20);
-	if (StringToInt(Arg2) <= 0)
-	{
-		ReplyToCommand(client, "[SM] Kullanım: sm_sgag <Hedef> <Dakika> <Sebep>");
-		return Plugin_Handled;
-	}
-	
-	Format(Arg2, 20, "%d", StringToInt(Arg2));
-	sgag.Set(Hedef, Arg2);
-	
-	char Arg3[128];
-	GetCmdArg(3, Arg3, 128);
-	sgags.Set(Hedef, Arg3);
-	
-	ClientGag[Hedef] = true;
-	BaseComm_SetClientGag(Hedef, true);
-	CreateTimer(60.0, SGagAzalt, GetClientUserId(Hedef), TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
-	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından \x0E%s nedeniyle \x04%d Dakika \x01Gag yedi", Hedef, client, Arg3, StringToInt(Arg2));
-	SendDiscordSGag(client, Hedef, StringToInt(Arg2), Arg3);
-	return Plugin_Handled;
-}
-
-void SendDiscordSGag(int client, int target, int Arg2, char Arg3[128])
-{
-	char webhook[1024];
-	g_dc_webhook.GetString(webhook, sizeof(webhook));
-	
-	char ClientSteamid[128];
-	GetClientAuthId(client, AuthId_Steam2, ClientSteamid, 128);
-	char ClientName[128];
-	GetClientName(client, ClientName, 128);
-	char ClientSteam[128];
-	GetCommunityID(ClientSteamid, ClientSteam, 128);
-	Format(ClientSteam, 128, "http://steamcommunity.com/profiles/%s", ClientSteam);
-	
-	char TargetSteamid[128];
-	GetClientAuthId(target, AuthId_Steam2, TargetSteamid, 128);
-	char TargetName[128];
-	GetClientName(target, TargetName, 128);
-	char TargetSteam[128];
-	GetCommunityID(TargetSteamid, TargetSteam, 128);
-	Format(TargetSteam, 128, "http://steamcommunity.com/profiles/%s", TargetSteam);
-	
-	char EmbedFormat[256];
-	DiscordWebHook hook = new DiscordWebHook(webhook);
-	hook.SlackMode = true;
-	MessageEmbed Embed = new MessageEmbed();
-	Embed.SetColor("#a300ff");
-	Embed.SetFooter("-ByDexter");
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", ClientName, ClientSteamid, ClientSteam);
-	Embed.AddField(":small_blue_diamond: Yetkili:", EmbedFormat, true);
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", TargetName, TargetSteamid, TargetSteam);
-	Embed.AddField(":small_orange_diamond: Ceza Alan:", EmbedFormat, true);
-	Embed.AddField(" ", " ", false);
-	Embed.AddField(":receipt: Sebep:", Arg3, true);
-	Format(EmbedFormat, 256, "%d Dakika", Arg2);
-	Embed.AddField(":globe_with_meridians: Süre:", EmbedFormat, true);
-	hook.Embed(Embed);
-	hook.SetUsername("Süreli Gag");
-	
-	hook.Send();
-	delete hook;
-}
-
-public Action SGagAzalt(Handle timer, int userid)
-{
-	int client = GetClientOfUserId(userid);
-	if (IsValidClient(client))
-	{
-		char sBuffer[20];
-		sgag.Get(client, sBuffer, 20);
-		int Sure = StringToInt(sBuffer);
-		Sure--;
-		if (Sure <= 0)
-		{
-			PrintToChat(client, "[SM] \x04Süreli Gagın \x01sona erdi.");
-			if (Sure > -2)
-				FinishGag(client);
-			
-			sgag.Set(client, "-3");
-			ClientGag[client] = false;
-			return Plugin_Stop;
-		}
-		else
-		{
-			FormatEx(sBuffer, 20, "%d", Sure);
-			sgag.Set(client, sBuffer);
-			return Plugin_Continue;
-		}
-	}
-	else
-	{
-		return Plugin_Stop;
-	}
-}
-
-void FinishGag(int client)
-{
-	char webhook[1024];
-	g_dc_webhook.GetString(webhook, sizeof(webhook));
-	
-	char ClientSteamid[128];
-	GetClientAuthId(client, AuthId_Steam2, ClientSteamid, 128);
-	char ClientName[128];
-	GetClientName(client, ClientName, 128);
-	char ClientSteam[128];
-	GetCommunityID(ClientSteamid, ClientSteam, 128);
-	Format(ClientSteam, 128, "http://steamcommunity.com/profiles/%s", ClientSteam);
-	char EmbedFormat[256];
-	DiscordWebHook hook = new DiscordWebHook(webhook);
-	hook.SlackMode = true;
-	MessageEmbed Embed = new MessageEmbed();
-	Embed.SetColor("#ebd234");
-	Embed.SetFooter("-ByDexter");
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", ClientName, ClientSteamid, ClientSteam);
-	Embed.AddField(":small_orange_diamond: Cezası Biten:", EmbedFormat, true);
-	hook.Embed(Embed);
-	hook.SetUsername("Süreli Gag");
-	
-	hook.Send();
-	delete hook;
-}
-
-public Action Command_SMute(int client, int args)
-{
-	if (args < 3)
-	{
-		ReplyToCommand(client, "[SM] Kullanım: sm_smute <Hedef> <Dakika> <Sebep>");
-		return Plugin_Handled;
-	}
-	
-	char Arg1[128];
-	GetCmdArg(1, Arg1, 128);
-	
-	int Hedef = FindTarget(client, Arg1, true, false);
-	
-	if (Hedef == -1)
-	{
-		ReplyToCommand(client, "[SM] Geçersiz bir hedef.");
-		return Plugin_Handled;
-	}
-	
-	char Arg2[20];
-	GetCmdArg(2, Arg2, 20);
-	if (StringToInt(Arg2) <= 0)
-	{
-		ReplyToCommand(client, "[SM] Kullanım: sm_smute <Hedef> <Dakika> <Sebep>");
-		return Plugin_Handled;
-	}
-	
-	Format(Arg2, 20, "%d", StringToInt(Arg2));
-	smute.Set(Hedef, Arg2);
-	
-	char Arg3[128];
-	GetCmdArg(3, Arg3, 128);
-	smutes.Set(Hedef, Arg3);
-	
-	Mute(Hedef);
-	ClientMute[client] = true;
-	BaseComm_SetClientMute(Hedef, false);
-	CreateTimer(60.0, SMuteAzalt, GetClientUserId(Hedef), TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
-	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından \x0E%s nedeniyle \x04%d Dakika \x01Mute yedi", Hedef, client, Arg3, StringToInt(Arg2));
-	SendDiscordSMute(client, Hedef, StringToInt(Arg2), Arg3);
-	return Plugin_Handled;
-}
-
-void SendDiscordSMute(int client, int target, int Arg2, char Arg3[128])
-{
-	char webhook[1024];
-	g_dc_webhook.GetString(webhook, sizeof(webhook));
-	
-	char ClientSteamid[128];
-	GetClientAuthId(client, AuthId_Steam2, ClientSteamid, 128);
-	char ClientName[128];
-	GetClientName(client, ClientName, 128);
-	char ClientSteam[128];
-	GetCommunityID(ClientSteamid, ClientSteam, 128);
-	Format(ClientSteam, 128, "http://steamcommunity.com/profiles/%s", ClientSteam);
-	
-	char TargetSteamid[128];
-	GetClientAuthId(target, AuthId_Steam2, TargetSteamid, 128);
-	char TargetName[128];
-	GetClientName(target, TargetName, 128);
-	char TargetSteam[128];
-	GetCommunityID(TargetSteamid, TargetSteam, 128);
-	Format(TargetSteam, 128, "http://steamcommunity.com/profiles/%s", TargetSteam);
-	
-	char EmbedFormat[256];
-	DiscordWebHook hook = new DiscordWebHook(webhook);
-	hook.SlackMode = true;
-	MessageEmbed Embed = new MessageEmbed();
-	Embed.SetColor("#a300ff");
-	Embed.SetFooter("-ByDexter");
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", ClientName, ClientSteamid, ClientSteam);
-	Embed.AddField(":small_blue_diamond: Yetkili:", EmbedFormat, true);
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", TargetName, TargetSteamid, TargetSteam);
-	Embed.AddField(":small_orange_diamond: Ceza Alan:", EmbedFormat, true);
-	Embed.AddField(" ", " ", false);
-	Embed.AddField(":receipt: Sebep:", Arg3, true);
-	Format(EmbedFormat, 256, "%d Dakika", Arg2);
-	Embed.AddField(":globe_with_meridians: Süre:", EmbedFormat, true);
-	hook.Embed(Embed);
-	hook.SetUsername("Süreli Mute");
-	
-	hook.Send();
-	delete hook;
-}
-
-public Action SMuteAzalt(Handle timer, int userid)
-{
-	int client = GetClientOfUserId(userid);
-	if (IsValidClient(client))
-	{
-		char sBuffer[20];
-		smute.Get(client, sBuffer, 20);
-		int Sure = StringToInt(sBuffer);
-		Sure--;
-		if (Sure <= 0)
-		{
-			PrintToChat(client, "[SM] \x04Süreli Muten \x01sona erdi.");
-			if (Sure > -2)
-				FinishMute(client);
-			
-			smute.Set(client, "-3");
-			UnMute(client);
-			return Plugin_Stop;
-		}
-		else
-		{
-			FormatEx(sBuffer, 20, "%d", Sure);
-			smute.Set(client, sBuffer);
-			return Plugin_Continue;
-		}
-	}
-	else
-	{
-		return Plugin_Stop;
-	}
-}
-
-void FinishMute(int client)
-{
-	char webhook[1024];
-	g_dc_webhook.GetString(webhook, sizeof(webhook));
-	
-	char ClientSteamid[128];
-	GetClientAuthId(client, AuthId_Steam2, ClientSteamid, 128);
-	char ClientName[128];
-	GetClientName(client, ClientName, 128);
-	char ClientSteam[128];
-	GetCommunityID(ClientSteamid, ClientSteam, 128);
-	Format(ClientSteam, 128, "http://steamcommunity.com/profiles/%s", ClientSteam);
-	char EmbedFormat[256];
-	DiscordWebHook hook = new DiscordWebHook(webhook);
-	hook.SlackMode = true;
-	MessageEmbed Embed = new MessageEmbed();
-	Embed.SetColor("#ebd234");
-	Embed.SetFooter("-ByDexter");
-	Format(EmbedFormat, 256, "%s \n [%s](%s)", ClientName, ClientSteamid, ClientSteam);
-	Embed.AddField(":small_orange_diamond: Cezası Biten:", EmbedFormat, true);
-	hook.Embed(Embed);
-	hook.SetUsername("Süreli Mute");
-	
-	hook.Send();
-	delete hook;
-}
-
-public void OnClientPostAdminCheck(int client)
-{
-	char sBuffer[20];
-	pgag.Get(client, sBuffer, 20);
-	if (StringToInt(sBuffer) == 1)
-	{
-		BaseComm_SetClientGag(client, true);
-		ClientGag[client] = true;
-	}
-	else
-	{
-		ClientGag[client] = false;
-		pgag.Set(client, "0");
-	}
-	pmute.Get(client, sBuffer, 20);
-	if (StringToInt(sBuffer) == 1)
-	{
-		Mute(client);
-		ClientMute[client] = true;
-		BaseComm_SetClientMute(client, true);
-	}
-	else
-	{
-		UnMute(client);
-		pmute.Set(client, "0");
-	}
-	sgag.Get(client, sBuffer, 20);
-	if (StringToInt(sBuffer) > 0)
-	{
-		CreateTimer(60.0, SGagAzalt, GetClientUserId(client), TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
-		ClientGag[client] = true;
-		BaseComm_SetClientGag(client, true);
-	}
-	else
-	{
-		ClientGag[client] = false;
-		sgag.Set(client, "0");
-	}
-	smute.Get(client, sBuffer, 20);
-	if (StringToInt(sBuffer) > 0)
-	{
-		CreateTimer(60.0, SMuteAzalt, GetClientUserId(client), TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
-		Mute(client);
-		BaseComm_SetClientMute(client, true);
-	}
-	else
-	{
-		UnMute(client);
-		smute.Set(client, "0");
-	}
-}
-
 bool IsValidClient(int client, bool nobots = true)
 {
 	if (client <= 0 || client > MaxClients || !IsClientConnected(client) || (nobots && IsFakeClient(client)))
@@ -1134,6 +288,25 @@ bool GetCommunityID(char[] AuthID, char[] FriendID, int size)
 	IntToString(iUpper, FriendID, size);
 	FriendID[9] = iIdx;
 	return true;
+}
+
+public Action OnClientSayCommand(int client, const char[] command, const char[] sArgs)
+{
+	if (ClientGag[client])
+	{
+		PrintToChat(client, "[SM] Cezalı olduğun için yazı yazamazsın.");
+		return Plugin_Handled;
+	}
+	return Plugin_Continue;
+}
+
+public Action Filter_Voicerecord(int client, const char[] command, int argc)
+{
+	if (ClientMute[client])
+	{
+		return Plugin_Stop;
+	}
+	return Plugin_Continue;
 }
 
 void UnMute(int client)
