@@ -86,9 +86,11 @@ public Action Command_PMute(int client, int args)
 	}
 	pmute.Set(Hedef, "1");
 	
-	char Arg2[128];
-	GetCmdArg(2, Arg2, 128);
+	char Arg2[256];
+	GetCmdArgString(Arg2, 256);
+	ReplaceString(Arg2, 256, Arg1, "", false);
 	pmutes.Set(Hedef, Arg2);
+	ClientMute[Hedef] = true;
 	Mute(Hedef);
 	BaseComm_SetClientMute(Hedef, true);
 	PrintToChatAll("[SM] \x10%N\x01, \x10%N \x01tarafından \x0E%s nedeniyle \x01PMute yedi", Hedef, client, Arg2);
@@ -96,7 +98,7 @@ public Action Command_PMute(int client, int args)
 	return Plugin_Handled;
 }
 
-void SendDiscordPMute(int client, int target, char Arg2[128])
+void SendDiscordPMute(int client, int target, char Arg2[256])
 {
 	char webhook[1024];
 	g_dc_webhook.GetString(webhook, sizeof(webhook));

@@ -25,7 +25,7 @@ public Plugin myinfo =
 	name = "Gelişmiş Basecomm", 
 	author = "ByDexter", 
 	description = "", 
-	version = "1.6", 
+	version = "1.7", 
 	url = "https://steamcommunity.com/id/ByDexterTR - ByDexter#5494"
 };
 

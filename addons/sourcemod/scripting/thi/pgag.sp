@@ -86,8 +86,9 @@ public Action Command_PGag(int client, int args)
 	
 	pgag.Set(Hedef, "1");
 	
-	char Arg2[128];
-	GetCmdArg(2, Arg2, 128);
+	char Arg2[256];
+	GetCmdArgString(Arg2, 256);
+	ReplaceString(Arg2, 256, Arg1, "", false);
 	pgags.Set(Hedef, Arg2);
 	ClientGag[Hedef] = true;
 	BaseComm_SetClientGag(Hedef, true);
@@ -96,7 +97,7 @@ public Action Command_PGag(int client, int args)
 	return Plugin_Handled;
 }
 
-void SendDiscordPGag(int client, int target, char Arg2[128])
+void SendDiscordPGag(int client, int target, char Arg2[256])
 {
 	char webhook[1024];
 	g_dc_webhook.GetString(webhook, sizeof(webhook));

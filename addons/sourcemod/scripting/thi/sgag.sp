@@ -28,8 +28,10 @@ public Action Command_SGag(int client, int args)
 	Format(Arg2, 20, "%d", StringToInt(Arg2));
 	sgag.Set(Hedef, Arg2);
 	
-	char Arg3[128];
-	GetCmdArg(3, Arg3, 128);
+	char Arg3[256];
+	GetCmdArgString(Arg3, 256);
+	ReplaceString(Arg3, 256, Arg1, "", false);
+	ReplaceString(Arg3, 256, Arg2, "", false);
 	sgags.Set(Hedef, Arg3);
 	
 	ClientGag[Hedef] = true;
@@ -40,7 +42,7 @@ public Action Command_SGag(int client, int args)
 	return Plugin_Handled;
 }
 
-void SendDiscordSGag(int client, int target, int Arg2, char Arg3[128])
+void SendDiscordSGag(int client, int target, int Arg2, char Arg3[256])
 {
 	char webhook[1024];
 	g_dc_webhook.GetString(webhook, sizeof(webhook));

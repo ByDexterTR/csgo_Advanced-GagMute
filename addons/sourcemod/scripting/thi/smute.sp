@@ -96,8 +96,10 @@ public Action Command_SMute(int client, int args)
 	Format(Arg2, 20, "%d", StringToInt(Arg2));
 	smute.Set(Hedef, Arg2);
 	
-	char Arg3[128];
-	GetCmdArg(3, Arg3, 128);
+	char Arg3[256];
+	GetCmdArgString(Arg3, 256);
+	ReplaceString(Arg3, 256, Arg1, "", false);
+	ReplaceString(Arg3, 256, Arg2, "", false);
 	smutes.Set(Hedef, Arg3);
 	
 	Mute(Hedef);
@@ -109,7 +111,7 @@ public Action Command_SMute(int client, int args)
 	return Plugin_Handled;
 }
 
-void SendDiscordSMute(int client, int target, int Arg2, char Arg3[128])
+void SendDiscordSMute(int client, int target, int Arg2, char Arg3[256])
 {
 	char webhook[1024];
 	g_dc_webhook.GetString(webhook, sizeof(webhook));

@@ -91,8 +91,9 @@ public Action Command_PSilence(int client, int args)
 	pmute.Set(Hedef, "1");
 	pgag.Set(Hedef, "1");
 	
-	char Arg2[128];
-	GetCmdArg(2, Arg2, 128);
+	char Arg2[256];
+	GetCmdArgString(Arg2, 256);
+	ReplaceString(Arg2, 256, Arg1, "", false);
 	pmutes.Set(Hedef, Arg2);
 	pgags.Set(Hedef, Arg2);
 	Mute(Hedef);
@@ -105,7 +106,7 @@ public Action Command_PSilence(int client, int args)
 	return Plugin_Handled;
 }
 
-void SendDiscordPSilence(int client, int target, char Arg2[128])
+void SendDiscordPSilence(int client, int target, char Arg2[256])
 {
 	char webhook[1024];
 	g_dc_webhook.GetString(webhook, sizeof(webhook));
@@ -144,4 +145,4 @@ void SendDiscordPSilence(int client, int target, char Arg2[128])
 	
 	hook.Send();
 	delete hook;
-}
+} 
