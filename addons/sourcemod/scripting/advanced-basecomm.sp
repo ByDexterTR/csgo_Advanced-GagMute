@@ -6,6 +6,7 @@
 #pragma semicolon 1
 #pragma newdecls required
 
+Handle TimerGag[65] = { null, ... }, TimerMute[65] = { null, ... };
 char sPath[256];
 bool Muted[65] = { false, ... }, Gagged[65] = { false, ... };
 char webhook[256]; ConVar _webhook = null; public void _webhookchange(ConVar convar, const char[] oldValue, const char[] newValue) { _webhook.GetString(webhook, 256); }
@@ -51,11 +52,47 @@ public void OnPluginStart()
 		OnClientPostAdminCheck(i);
 	}
 	
-	_webhook = CreateConVar("advanced-basecomm_dc_webhook", "https://discord.com/api/webhooks/................./.................");
+	_webhook = CreateConVar("advanced-basecomm_dc_webhook", "https://discord.com/api/webhooks/908781188649463848/5j84IMoWEDHcPHkY0qzVJi0JvUGpXIrqxR2TE2CFFQfEMh0ZPQtlPcZzfNWrgLMN6vK9");
 	_webhook.GetString(webhook, 256);
 	_webhook.AddChangeHook(_webhookchange);
 	
 	AutoExecConfig(true, "Advanced-Basecomm", "ByDexter");
+}
+
+public void OnMapStart()
+{
+	char sBuffer[32];
+	KeyValues kv = new KeyValues("ByDexter");
+	kv.ImportFromFile(sPath);
+	if (kv.GotoFirstSubKey())
+	{
+		do
+		{
+			if (kv.GetSectionName(sBuffer, 32))
+			{
+				kv.JumpToKey(sBuffer, false);
+				if (kv.GetNum("pgag", 0) <= 0)
+				{
+					if (kv.GetNum("gagtime", 0) <= 0)
+					{
+						if (kv.GetNum("pmute", 0) <= 0)
+						{
+							if (kv.GetNum("mutetime", 0) <= 0)
+							{
+								kv.Rewind();
+								kv.JumpToKey(sBuffer, false);
+								kv.DeleteThis();
+							}
+						}
+					}
+				}
+			}
+		}
+		while (kv.GotoNextKey());
+	}
+	kv.Rewind();
+	kv.ExportToFile(sPath);
+	delete kv;
 }
 
 public void OnPluginEnd()
@@ -68,6 +105,16 @@ public void OnPluginEnd()
 
 public void OnClientPostAdminCheck(int client)
 {
+	if (TimerGag[client] != null)
+	{
+		delete TimerGag[client];
+		TimerGag[client] = null;
+	}
+	if (TimerMute[client] != null)
+	{
+		delete TimerMute[client];
+		TimerMute[client] = null;
+	}
 	Gagged[client] = false; Muted[client] = false;
 	char format[128];
 	GetClientAuthId(client, AuthId_Steam2, format, 128);
@@ -76,68 +123,68 @@ public void OnClientPostAdminCheck(int client)
 	KeyValues kv = new KeyValues("ByDexter");
 	kv.ImportFromFile(sPath);
 	
-	kv.JumpToKey(format, true);
-	
-	GetClientName(client, format, 128);
-	kv.SetString("lastname", format);
-	
-	FormatTime(format, 128, "%T - %F", GetTime());
-	kv.SetString("lastjoin", format);
-	
-	int time = kv.GetNum("pgag", 0);
-	if (time >= 1)
+	if (kv.JumpToKey(format, false))
 	{
-		Gagged[client] = true;
-		BaseComm_SetClientGag(client, true);
-	}
-	else
-	{
-		kv.SetNum("pgag", 0);
-	}
-	
-	if (!Gagged[client])
-	{
-		time = kv.GetNum("gagtime", 0);
+		GetClientName(client, format, 128);
+		kv.SetString("lastname", format);
+		
+		FormatTime(format, 128, "%T - %F", GetTime());
+		kv.SetString("lastjoin", format);
+		
+		int time = kv.GetNum("pgag", 0);
 		if (time >= 1)
 		{
 			Gagged[client] = true;
 			BaseComm_SetClientGag(client, true);
-			CreateTimer(60.0, GagTimer, client, TIMER_REPEAT);
 		}
 		else
 		{
-			kv.SetNum("gagtime", 0);
+			kv.SetNum("pgag", 0);
 		}
-	}
-	
-	time = kv.GetNum("pmute", 0);
-	if (time >= 1)
-	{
-		Muted[client] = true;
-		Mute(client);
-	}
-	else
-	{
-		kv.SetNum("pmute", 0);
-	}
-	
-	if (!Muted[client])
-	{
-		time = kv.GetNum("mutetime", 0);
+		
+		if (!Gagged[client])
+		{
+			time = kv.GetNum("gagtime", 0);
+			if (time >= 1)
+			{
+				Gagged[client] = true;
+				BaseComm_SetClientGag(client, true);
+				TimerGag[client] = CreateTimer(60.0, GagTimer, client, TIMER_REPEAT);
+			}
+			else
+			{
+				kv.SetNum("gagtime", 0);
+			}
+		}
+		
+		time = kv.GetNum("pmute", 0);
 		if (time >= 1)
 		{
 			Muted[client] = true;
 			Mute(client);
-			CreateTimer(60.0, MuteTimer, client, TIMER_REPEAT);
 		}
 		else
 		{
-			kv.SetNum("mutetime", 0);
+			kv.SetNum("pmute", 0);
 		}
+		
+		if (!Muted[client])
+		{
+			time = kv.GetNum("mutetime", 0);
+			if (time >= 1)
+			{
+				Muted[client] = true;
+				Mute(client);
+				TimerMute[client] = CreateTimer(60.0, MuteTimer, client, TIMER_REPEAT);
+			}
+			else
+			{
+				kv.SetNum("mutetime", 0);
+			}
+		}
+		kv.Rewind();
+		kv.ExportToFile(sPath);
 	}
-	
-	kv.Rewind();
-	kv.ExportToFile(sPath);
 	delete kv;
 }
 
@@ -170,57 +217,67 @@ public Action Command_ceza(int client, int args)
 	KeyValues kv = new KeyValues("ByDexter");
 	kv.ImportFromFile(sPath);
 	
-	kv.JumpToKey(format, true);
-	
-	GetClientName(target, format, 128);
-	kv.SetString("lastname", format);
-	
-	FormatTime(format, 128, "%T - %F", GetTime());
-	kv.SetString("lastjoin", format);
-	
-	int time = kv.GetNum("pgag", 0);
-	if (time >= 1)
+	if (kv.JumpToKey(format, false))
 	{
-		kv.GetString("pgagreason", format, 128);
-		Format(format, 128, "Perma Gag: Var\nSebep: %s\n ", format);
-		panel.DrawText(format);
-	}
-	else
-	{
-		time = kv.GetNum("gagtime", 0);
+		GetClientName(target, format, 128);
+		kv.SetString("lastname", format);
+		
+		FormatTime(format, 128, "%T - %F", GetTime());
+		kv.SetString("lastjoin", format);
+		
+		int time = kv.GetNum("pgag", 0);
 		if (time >= 1)
 		{
-			kv.GetString("gagreason", format, 128);
-			Format(format, 128, "Süreli Gag: %d dakika\nSebep: %s\n ", time, format);
+			kv.GetString("pgagreason", format, 128);
+			Format(format, 128, "Perma Gag: Var\nSebep: %s\n ", format);
 			panel.DrawText(format);
 		}
 		else
 		{
-			panel.DrawText("Perma/Süreli Gag: Yok\n ");
+			time = kv.GetNum("gagtime", 0);
+			if (time >= 1)
+			{
+				kv.GetString("gagreason", format, 128);
+				Format(format, 128, "Süreli Gag: %d dakika\nSebep: %s\n ", time, format);
+				panel.DrawText(format);
+			}
+			else
+			{
+				panel.DrawText("Perma/Süreli Gag: Yok\n ");
+			}
 		}
-	}
-	
-	time = kv.GetNum("pmute", 0);
-	if (time >= 1)
-	{
-		kv.GetString("pmutereason", format, 128);
-		Format(format, 128, "Perma Mute: Var\nSebep: %s\n ", format);
-		panel.DrawText(format);
-	}
-	else
-	{
-		time = kv.GetNum("mutetime", 0);
+		
+		time = kv.GetNum("pmute", 0);
 		if (time >= 1)
 		{
-			kv.GetString("mutereason", format, 128);
-			Format(format, 128, "Süreli Mute: %d dakika\nSebep: %s\n ", time, format);
+			kv.GetString("pmutereason", format, 128);
+			Format(format, 128, "Perma Mute: Var\nSebep: %s\n ", format);
 			panel.DrawText(format);
 		}
 		else
 		{
-			panel.DrawText("Perma/Süreli Mute: Yok\n ");
+			time = kv.GetNum("mutetime", 0);
+			if (time >= 1)
+			{
+				kv.GetString("mutereason", format, 128);
+				Format(format, 128, "Süreli Mute: %d dakika\nSebep: %s\n ", time, format);
+				panel.DrawText(format);
+			}
+			else
+			{
+				panel.DrawText("Perma/Süreli Mute: Yok\n ");
+			}
 		}
+		kv.Rewind();
+		kv.ExportToFile(sPath);
 	}
+	else
+	{
+		panel.DrawText("Perma/Süreli Gag: Yok\n ");
+		panel.DrawText("Perma/Süreli Mute: Yok\n ");
+	}
+	delete kv;
+	
 	panel.DrawItem("Kapat");
 	panel.Send(client, Panel_CallBack, 15);
 	delete panel;
@@ -420,6 +477,7 @@ public Action GagTimer(Handle timer, int client)
 				delete kv;
 				BaseComm_SetClientGag(client, false);
 			}
+			TimerGag[client] = null;
 			return Plugin_Stop;
 		}
 		else
@@ -438,6 +496,7 @@ public Action GagTimer(Handle timer, int client)
 	}
 	else
 	{
+		TimerGag[client] = null;
 		return Plugin_Stop;
 	}
 	return Plugin_Continue;
@@ -622,6 +681,7 @@ public Action MuteTimer(Handle timer, int client)
 				kv.ExportToFile(sPath);
 				delete kv;
 			}
+			TimerMute[client] = null;
 			return Plugin_Stop;
 		}
 		else
@@ -640,6 +700,7 @@ public Action MuteTimer(Handle timer, int client)
 	}
 	else
 	{
+		TimerMute[client] = null;
 		return Plugin_Stop;
 	}
 	return Plugin_Continue;
@@ -1064,7 +1125,7 @@ public void BaseComm_OnClientMute(int client, bool muteState)
 	if (!muteState && Muted[client])
 	{
 		Mute(client);
-		PrintToChatAll("[SM] \x07Hata\x01: %N kişisinin mutesi açılamadı, cezasıbulunmakta.\x10!ceza", client);
+		PrintToChatAll("[SM] \x07Hata\x01: %N kişisinin mutesi açılamadı, cezası bulunmakta.\x10!ceza", client);
 	}
 }
 
@@ -1073,7 +1134,7 @@ public void BaseComm_OnClientGag(int client, bool gagState)
 	if (!gagState && Gagged[client])
 	{
 		BaseComm_SetClientGag(client, true);
-		PrintToChatAll("[SM] \x07Hata\x01: %N kişisinin gagı açılamadı, cezasıbulunmakta.\x10!ceza", client);
+		PrintToChatAll("[SM] \x07Hata\x01: %N kişisinin gagı açılamadı, cezası bulunmakta.\x10!ceza", client);
 	}
 }
 
