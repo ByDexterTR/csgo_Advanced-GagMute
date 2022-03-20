@@ -52,7 +52,7 @@ public void OnPluginStart()
 		OnClientPostAdminCheck(i);
 	}
 	
-	_webhook = CreateConVar("advanced-basecomm_dc_webhook", "https://discord.com/api/webhooks/908781188649463848/5j84IMoWEDHcPHkY0qzVJi0JvUGpXIrqxR2TE2CFFQfEMh0ZPQtlPcZzfNWrgLMN6vK9");
+	_webhook = CreateConVar("advanced-basecomm_dc_webhook", "https://discord.com/api/webhooks/..................../..................");
 	_webhook.GetString(webhook, 256);
 	_webhook.AddChangeHook(_webhookchange);
 	
