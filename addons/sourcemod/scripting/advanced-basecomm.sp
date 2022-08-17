@@ -16,7 +16,7 @@ public Plugin myinfo =
 	name = "Gelişmiş Gag/Mute İşlemleri", 
 	author = "ByDexter", 
 	description = "", 
-	version = "1.1", 
+	version = "1.1b", 
 	url = "https://steamcommunity.com/id/ByDexterTR - ByDexter#5494"
 };
 
@@ -26,23 +26,23 @@ public void OnPluginStart()
 	
 	RegConsoleCmd("sm_ceza", Command_ceza, "sm_ceza");
 	
-	RegAdminCmd("sm_sgag", Command_sgag, ADMFLAG_SLAY, "sm_sgag <#userid|name> <dakika|1> [sebep]");
-	RegAdminCmd("sm_sungag", Command_sungag, ADMFLAG_SLAY, "sm_sungag <#userid|name>");
+	RegAdminCmd("sm_sgag", Command_sgag, ADMFLAG_CHAT, "sm_sgag <#userid|name> <dakika|1> [sebep]");
+	RegAdminCmd("sm_sungag", Command_sungag, ADMFLAG_CHAT, "sm_sungag <#userid|name>");
 	
-	RegAdminCmd("sm_pgag", Command_pgag, ADMFLAG_BAN, "sm_pgag <#userid|name> [sebep]");
-	RegAdminCmd("sm_pungag", Command_pungag, ADMFLAG_BAN, "sm_pungag <#userid|name>");
+	RegAdminCmd("sm_pgag", Command_pgag, ADMFLAG_CHAT, "sm_pgag <#userid|name> [sebep]");
+	RegAdminCmd("sm_pungag", Command_pungag, ADMFLAG_CHAT, "sm_pungag <#userid|name>");
 	
-	RegAdminCmd("sm_smute", Command_smute, ADMFLAG_SLAY, "sm_smute <#userid|name> <dakika|1> [sebep]");
-	RegAdminCmd("sm_sunmute", Command_sunmute, ADMFLAG_SLAY, "sm_sunmute <#userid|name>");
+	RegAdminCmd("sm_smute", Command_smute, ADMFLAG_CHAT, "sm_smute <#userid|name> <dakika|1> [sebep]");
+	RegAdminCmd("sm_sunmute", Command_sunmute, ADMFLAG_CHAT, "sm_sunmute <#userid|name>");
 	
-	RegAdminCmd("sm_pmute", Command_pmute, ADMFLAG_BAN, "sm_pmute <#userid|name> [sebep]");
-	RegAdminCmd("sm_punmute", Command_punmute, ADMFLAG_BAN, "sm_punmute <#userid|name>");
+	RegAdminCmd("sm_pmute", Command_pmute, ADMFLAG_CHAT, "sm_pmute <#userid|name> [sebep]");
+	RegAdminCmd("sm_punmute", Command_punmute, ADMFLAG_CHAT, "sm_punmute <#userid|name>");
 	
-	RegAdminCmd("sm_ssilence", Command_ssilence, ADMFLAG_SLAY, "sm_ssilence <#userid|name> <dakika|1> [sebep]");
-	RegAdminCmd("sm_sunsilence", Command_sunsilence, ADMFLAG_SLAY, "sm_sunsilence <#userid|name>");
+	RegAdminCmd("sm_ssilence", Command_ssilence, ADMFLAG_CHAT, "sm_ssilence <#userid|name> <dakika|1> [sebep]");
+	RegAdminCmd("sm_sunsilence", Command_sunsilence, ADMFLAG_CHAT, "sm_sunsilence <#userid|name>");
 	
-	RegAdminCmd("sm_psilence", Command_psilence, ADMFLAG_BAN, "sm_psilence <#userid|name> [sebep]");
-	RegAdminCmd("sm_punsilence", Command_punsilence, ADMFLAG_BAN, "sm_punmute <#userid|name>");
+	RegAdminCmd("sm_psilence", Command_psilence, ADMFLAG_CHAT, "sm_psilence <#userid|name> [sebep]");
+	RegAdminCmd("sm_punsilence", Command_punsilence, ADMFLAG_CHAT, "sm_punmute <#userid|name>");
 	
 	BuildPath(Path_SM, sPath, 256, "data/advanced-basecomm.ini");
 	
@@ -1048,7 +1048,7 @@ public void BaseComm_OnClientMute(int client, bool muteState)
 	if (!muteState && Muted[client])
 	{
 		Mute(client);
-		PrintToChatAll("[SM] \x07Hata\x01: %N kişisinin mutesi açılamadı, cezası bulunmakta.\x10!ceza #%d", client, GetClientOfUserId(client));
+		PrintToChatAll("[SM] \x07Hata\x01: %N kişisinin mutesi açılamadı, cezalı. \x10!ceza #%d", client, GetClientUserId(client));
 	}
 }
 
@@ -1057,7 +1057,7 @@ public void BaseComm_OnClientGag(int client, bool gagState)
 	if (!gagState && Gagged[client])
 	{
 		BaseComm_SetClientGag(client, true);
-		PrintToChatAll("[SM] \x07Hata\x01: %N kişisinin gagı açılamadı, cezası bulunmakta.\x10!ceza #%d", client, GetClientOfUserId(client));
+		PrintToChatAll("[SM] \x07Hata\x01: %N kişisinin gagı açılamadı, cezalı. \x10!ceza #%d", client, GetClientUserId(client));
 	}
 }
 
