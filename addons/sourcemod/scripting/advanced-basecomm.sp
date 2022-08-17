@@ -1,7 +1,7 @@
 #include <sourcemod>
+#include <steamworks>
 #include <sdktools_voice>
 #include <basecomm>
-#include <discord>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -16,14 +16,13 @@ public Plugin myinfo =
 	name = "Gelişmiş Gag/Mute İşlemleri", 
 	author = "ByDexter", 
 	description = "", 
-	version = "1.0", 
+	version = "1.1", 
 	url = "https://steamcommunity.com/id/ByDexterTR - ByDexter#5494"
 };
 
 public void OnPluginStart()
 {
 	LoadTranslations("common.phrases");
-	LoadTranslations("core.phrases");
 	
 	RegConsoleCmd("sm_ceza", Command_ceza, "sm_ceza");
 	
@@ -52,7 +51,7 @@ public void OnPluginStart()
 		OnClientPostAdminCheck(i);
 	}
 	
-	_webhook = CreateConVar("advanced-basecomm_dc_webhook", "https://discord.com/api/webhooks/..................../..................");
+	_webhook = CreateConVar("advanced-basecomm_dc_webhook", "https://discord.com/api/webhooks/..................../..................", "", FCVAR_PROTECTED);
 	_webhook.GetString(webhook, 256);
 	_webhook.AddChangeHook(_webhookchange);
 	
@@ -190,6 +189,7 @@ public void OnClientPostAdminCheck(int client)
 
 public Action Command_ceza(int client, int args)
 {
+	char format[128];
 	int target;
 	Panel panel = new Panel();
 	if (args == 0)
@@ -199,19 +199,19 @@ public Action Command_ceza(int client, int args)
 	}
 	else
 	{
-		char arg[256];
-		GetCmdArgString(arg, 256);
-		target = FindTarget(client, arg, true, false);
+		GetCmdArgString(format, 128);
+		target = FindTarget(client, format, true, false);
 		if (target == -1)
 		{
 			return Plugin_Handled;
 		}
-		GetClientName(target, arg, 256);
-		FixText(arg, 256);
-		Format(arg, 256, "★ %s Cezaları\n__________________________\n ", arg);
-		panel.SetTitle(arg);
 	}
-	char format[128];
+	
+	GetClientName(target, format, 128);
+	FixText(format, 128);
+	Format(format, 256, "★ %s Cezaları\n__________________________\n ", format);
+	panel.SetTitle(format);
+	
 	GetClientAuthId(target, AuthId_Steam2, format, 128);
 	
 	KeyValues kv = new KeyValues("ByDexter");
@@ -286,6 +286,7 @@ public Action Command_ceza(int client, int args)
 
 public int Panel_CallBack(Menu panel, MenuAction action, int client, int position)
 {
+	return 0;
 }
 
 public Action Command_sgag(int client, int args)
@@ -431,23 +432,25 @@ public Action GagTimer(Handle timer, int client)
 {
 	if (IsValidClient(client))
 	{
-		char format[128];
-		GetClientAuthId(client, AuthId_Steam2, format, 128);
+		char format[128], steamid[32];
+		GetClientAuthId(client, AuthId_Steam2, steamid, 32);
 		
 		KeyValues kv = new KeyValues("ByDexter");
 		kv.ImportFromFile(sPath);
 		
-		kv.JumpToKey(format, true);
+		kv.JumpToKey(steamid, true);
+		
+		FormatTime(format, 128, "%T - %F", GetTime());
+		kv.SetString("lastjoin", format);
 		
 		GetClientName(client, format, 128);
 		FixText(format, 128);
 		kv.SetString("lastname", format);
 		
-		FormatTime(format, 128, "%T - %F", GetTime());
-		kv.SetString("lastjoin", format);
-		
 		int time = kv.GetNum("gagtime", 0);
-		time--;
+		if (time >= 1)
+			time--;
+		
 		kv.SetNum("gagtime", time);
 		if (time <= 0)
 		{
@@ -455,27 +458,14 @@ public Action GagTimer(Handle timer, int client)
 			if (time == 0)
 			{
 				PrintToChatAll("[SM] \x10%N \x01süreli gagı sona erdi.", client);
-				DiscordWebHook hook = new DiscordWebHook(webhook);
-				hook.SlackMode = true;
-				
-				MessageEmbed Embed = new MessageEmbed();
-				Embed.SetColor("#fb9c31");
-				Embed.SetTitleLink("https://steamcommunity.com/groups/SiriusJB");
-				Embed.SetTitle("Gag");
-				char format2[256], steamid[32];
-				GetClientName(client, format, 128);
-				FixText(format, 128);
-				GetClientAuthId(client, AuthId_Steam2, steamid, 32);
-				GetCommunityID(steamid, format2, 256);
-				Format(format2, 256, "[%s](http://steamcommunity.com/profiles/%s)\n```%s```", format, format2, steamid);
-				Embed.AddField(":partying_face: Masum", format2, true);
-				hook.Embed(Embed);
-				hook.Send();
-				delete hook;
 				kv.Rewind();
 				kv.ExportToFile(sPath);
 				delete kv;
 				BaseComm_SetClientGag(client, false);
+				
+				char message[2000];
+				Format(message, 2000, ":tada: **Gag** - Süre sona erdi.\n> **Suçlu**: `%s | %s`", format, steamid);
+				SendToDiscord(message);
 			}
 			TimerGag[client] = null;
 			return Plugin_Stop;
@@ -635,23 +625,25 @@ public Action MuteTimer(Handle timer, int client)
 {
 	if (IsValidClient(client))
 	{
-		char format[128];
-		GetClientAuthId(client, AuthId_Steam2, format, 128);
+		char format[128], steamid[32];
+		GetClientAuthId(client, AuthId_Steam2, steamid, 32);
 		
 		KeyValues kv = new KeyValues("ByDexter");
 		kv.ImportFromFile(sPath);
 		
-		kv.JumpToKey(format, true);
+		kv.JumpToKey(steamid, true);
+		
+		FormatTime(format, 128, "%T - %F", GetTime());
+		kv.SetString("lastjoin", format);
 		
 		GetClientName(client, format, 128);
 		FixText(format, 128);
 		kv.SetString("lastname", format);
 		
-		FormatTime(format, 128, "%T - %F", GetTime());
-		kv.SetString("lastjoin", format);
-		
 		int time = kv.GetNum("mutetime", 0);
-		time--;
+		if (time >= 1)
+			time--;
+		
 		kv.SetNum("mutetime", time);
 		if (time <= 0)
 		{
@@ -660,27 +652,15 @@ public Action MuteTimer(Handle timer, int client)
 			if (time == 0)
 			{
 				PrintToChatAll("[SM] \x10%N \x01süreli mutesi sona erdi.", client);
-				DiscordWebHook hook = new DiscordWebHook(webhook);
-				hook.SlackMode = true;
-				
-				MessageEmbed Embed = new MessageEmbed();
-				Embed.SetColor("#fb9c31");
-				Embed.SetTitleLink("https://steamcommunity.com/groups/SiriusJB");
-				Embed.SetTitle("Mute");
-				char format2[256], steamid[32];
-				GetClientName(client, format, 128);
-				FixText(format, 128);
-				GetClientAuthId(client, AuthId_Steam2, steamid, 32);
-				GetCommunityID(steamid, format2, 256);
-				Format(format2, 256, "[%s](http://steamcommunity.com/profiles/%s)\n```%s```", format, format2, steamid);
-				Embed.AddField(":partying_face: Masum", format2, true);
-				hook.Embed(Embed);
-				hook.Send();
-				delete hook;
 				kv.Rewind();
 				kv.ExportToFile(sPath);
 				delete kv;
+				
+				char message[2000];
+				Format(message, 2000, ":tada: **Mute** - Süre sona erdi.\n> **Suçlu**: `%s | %s`", format, steamid);
+				SendToDiscord(message);
 			}
+			
 			TimerMute[client] = null;
 			return Plugin_Stop;
 		}
@@ -839,14 +819,7 @@ void CezaVer(int client, int admin, int time, const char[] reason, int ceza, boo
 {
 	if (IsValidClient(client))
 	{
-		DiscordWebHook hook = new DiscordWebHook(webhook);
-		hook.SlackMode = true;
-		
-		MessageEmbed Embed = new MessageEmbed();
-		Embed.SetColor("#cc00ff");
-		Embed.SetTitleLink("https://steamcommunity.com/groups/SiriusJB");
-		
-		char format[128], steamid[32];
+		char message[2000], format[128], steamid[32];
 		GetClientAuthId(client, AuthId_Steam2, steamid, 32);
 		
 		KeyValues kv = new KeyValues("ByDexter");
@@ -865,13 +838,13 @@ void CezaVer(int client, int admin, int time, const char[] reason, int ceza, boo
 		{
 			if (perma)
 			{
-				Embed.SetTitle("PermaGag");
+				Format(message, 2000, ":no_mobile_phones: **PermaGag**");
 				kv.SetNum("pgag", 1);
 				kv.SetString("pgagreason", reason);
 			}
 			else
 			{
-				Embed.SetTitle("Gag");
+				Format(message, 2000, ":no_mobile_phones: **Gag**");
 				kv.SetNum("gagtime", time);
 				kv.SetString("gagreason", reason);
 			}
@@ -880,22 +853,22 @@ void CezaVer(int client, int admin, int time, const char[] reason, int ceza, boo
 		{
 			if (perma)
 			{
-				Embed.SetTitle("PermaMute");
+				Format(message, 2000, ":no_mobile_phones: **PermaMute**");
 				kv.SetNum("pmute", 1);
 				kv.SetString("pmutereason", reason);
 			}
 			else
 			{
-				Embed.SetTitle("Mute");
+				Format(message, 2000, ":no_mobile_phones: **Mute**");
 				kv.SetNum("mutetime", time);
 				kv.SetString("mutereason", reason);
 			}
 		}
-		else if (ceza == 3) // Silence
+		else // Silence
 		{
 			if (perma)
 			{
-				Embed.SetTitle("PermaSilence");
+				Format(message, 2000, ":no_mobile_phones: **PermaSilence**");
 				kv.SetNum("pgag", 1);
 				kv.SetString("pgagreason", reason);
 				kv.SetNum("pmute", 1);
@@ -903,7 +876,7 @@ void CezaVer(int client, int admin, int time, const char[] reason, int ceza, boo
 			}
 			else
 			{
-				Embed.SetTitle("Silence");
+				Format(message, 2000, ":no_mobile_phones: **Silence**");
 				kv.SetNum("gagtime", time);
 				kv.SetString("gagreason", reason);
 				kv.SetNum("mutetime", time);
@@ -914,48 +887,32 @@ void CezaVer(int client, int admin, int time, const char[] reason, int ceza, boo
 		kv.ExportToFile(sPath);
 		delete kv;
 		
-		char format2[256];
 		if (admin == 0)
 		{
-			Embed.AddField(":beginner: Admin", "[Panel](https://store.steampowered.com/app/730/CounterStrike_Global_Offensive/)\n```BOT```", true);
+			Format(message, 2000, "%s\n> **Admin**: `Panel`", message);
 		}
 		else
 		{
 			GetClientAuthId(admin, AuthId_Steam2, steamid, 32);
-			GetCommunityID(steamid, format2, 256);
 			GetClientName(admin, format, 128);
 			FixText(format, 128);
-			Format(format2, 256, "[%s](http://steamcommunity.com/profiles/%s)\n```%s```", format, format2, steamid);
-			Embed.AddField(":beginner: Admin", format2, true);
+			Format(message, 2000, "%s\n> **Admin**: `%s | %s`", message, format, steamid);
 		}
-		
-		GetClientAuthId(client, AuthId_Steam2, steamid, 32);
-		GetCommunityID(steamid, format2, 256);
-		GetClientName(client, format, 128);
-		FixText(format, 128);
-		Format(format2, 256, "[%s](http://steamcommunity.com/profiles/%s)\n```%s```", format, format2, steamid);
-		Embed.AddField(":no_pedestrians: Suçlu", format2, true);
-		
-		Embed.AddField("", "", false);
-		
-		Format(format2, 256, "```%s```", reason);
-		Embed.AddField(":dart: Sebep", format2, true);
 		
 		if (time >= 1)
 		{
-			Format(format2, 256, "```%d dakika```", time);
-			Embed.AddField(":clock1: Süre", format2, true);
+			GetClientAuthId(client, AuthId_Steam2, steamid, 32);
+			GetClientName(client, format, 128);
+			FixText(format, 128);
+			Format(message, 2000, "%s\n> **Suçlu**: `%s | %s`\n> **Sebep**: `%s`\n> **Süre**: `%d dakika`", message, format, steamid, reason, time);
 		}
 		else
 		{
-			Format(format2, 256, "```Kalıcı```", time);
-			Embed.AddField(":clock1: Süre", format2, true);
+			Format(message, 2000, "%s\n> **Suçlu**: `%s | %s`\n> **Sebep**: `%s`\n> **Süre**: `Kalıcı`", message, format, steamid, reason, time);
 		}
 		
-		hook.Embed(Embed);
-		hook.Send();
-		delete hook;
 		OnClientPostAdminCheck(client);
+		SendToDiscord(message);
 	}
 }
 
@@ -963,14 +920,7 @@ void CezaAl(int client, int admin, int ceza, bool perma = false)
 {
 	if (IsValidClient(client))
 	{
-		DiscordWebHook hook = new DiscordWebHook(webhook);
-		hook.SlackMode = true;
-		
-		MessageEmbed Embed = new MessageEmbed();
-		Embed.SetColor("#31fb31");
-		Embed.SetTitleLink("https://steamcommunity.com/groups/SiriusJB");
-		
-		char format[128], steamid[32];
+		char message[2000], format[128], steamid[32];
 		GetClientAuthId(client, AuthId_Steam2, steamid, 32);
 		
 		KeyValues kv = new KeyValues("ByDexter");
@@ -989,12 +939,12 @@ void CezaAl(int client, int admin, int ceza, bool perma = false)
 		{
 			if (perma)
 			{
-				Embed.SetTitle("PermaUnGag");
+				Format(message, 2000, ":children_crossing: **PermaUnGag**");
 				kv.SetNum("pgag", 0);
 			}
 			else
 			{
-				Embed.SetTitle("UnGag");
+				Format(message, 2000, ":children_crossing: **UnGag**");
 				kv.SetNum("gagtime", -1);
 			}
 		}
@@ -1002,12 +952,12 @@ void CezaAl(int client, int admin, int ceza, bool perma = false)
 		{
 			if (perma)
 			{
-				Embed.SetTitle("PermaUnMute");
+				Format(message, 2000, ":children_crossing: **PermaUnMute**");
 				kv.SetNum("pmute", 0);
 			}
 			else
 			{
-				Embed.SetTitle("UnMute");
+				Format(message, 2000, ":children_crossing: **UnMute**");
 				kv.SetNum("mutetime", -1);
 			}
 		}
@@ -1015,13 +965,13 @@ void CezaAl(int client, int admin, int ceza, bool perma = false)
 		{
 			if (perma)
 			{
-				Embed.SetTitle("PermaUnSilence");
+				Format(message, 2000, ":children_crossing: **PermaUnSilence**");
 				kv.SetNum("pgag", 0);
 				kv.SetNum("pmute", 0);
 			}
 			else
 			{
-				Embed.SetTitle("UnSilence");
+				Format(message, 2000, ":children_crossing: **UnSilence**");
 				kv.SetNum("gagtime", -1);
 				kv.SetNum("mutetime", -1);
 			}
@@ -1030,54 +980,27 @@ void CezaAl(int client, int admin, int ceza, bool perma = false)
 		kv.ExportToFile(sPath);
 		delete kv;
 		
-		char format2[256];
 		if (admin == 0)
 		{
-			Embed.AddField(":beginner: Admin", "[Panel](https://store.steampowered.com/app/730/CounterStrike_Global_Offensive/)\n```BOT```", true);
+			Format(message, 2000, "%s\n> **Admin**: `Panel`", message);
 		}
 		else
 		{
 			GetClientAuthId(admin, AuthId_Steam2, steamid, 32);
-			GetCommunityID(steamid, format2, 256);
 			GetClientName(admin, format, 128);
 			FixText(format, 128);
-			Format(format2, 256, "[%s](http://steamcommunity.com/profiles/%s)\n```%s```", format, format2, steamid);
-			Embed.AddField(":beginner: Admin", format2, true);
+			Format(message, 2000, "%s\n> **Admin**: `%s | %s`", message, format, steamid);
 		}
 		
 		GetClientAuthId(client, AuthId_Steam2, steamid, 32);
-		GetCommunityID(steamid, format2, 256);
 		GetClientName(client, format, 128);
 		FixText(format, 128);
-		Format(format2, 256, "[%s](http://steamcommunity.com/profiles/%s)\n```%s```", format, format2, steamid);
-		Embed.AddField(":no_pedestrians: Suçlu", format2, true);
 		
-		Embed.AddField("", "", false);
+		Format(message, 2000, "%s\n> **Suçlu**: `%s | %s`", message, format, steamid);
 		
-		hook.Embed(Embed);
-		hook.Send();
-		delete hook;
 		OnClientPostAdminCheck(client);
+		SendToDiscord(message);
 	}
-}
-
-bool GetCommunityID(char[] AuthID, char[] FriendID, int size)
-{
-	if (strlen(AuthID) < 11 || AuthID[0] != 'S' || AuthID[6] == 'I')
-	{
-		FriendID[0] = 0;
-		return false;
-	}
-	int iUpper = 765611979;
-	int iFriendID = StringToInt(AuthID[10]) * 2 + 60265728 + AuthID[8] - 48;
-	int iDiv = iFriendID / 100000000;
-	int iIdx = 9 - (iDiv ? iDiv / 10 + 1:0);
-	iUpper += iDiv;
-	IntToString(iFriendID, FriendID[iIdx], size - iIdx);
-	iIdx = FriendID[9];
-	IntToString(iUpper, FriendID, size);
-	FriendID[9] = iIdx;
-	return true;
 }
 
 bool IsValidClient(int client, bool nobots = true)
@@ -1125,7 +1048,7 @@ public void BaseComm_OnClientMute(int client, bool muteState)
 	if (!muteState && Muted[client])
 	{
 		Mute(client);
-		PrintToChatAll("[SM] \x07Hata\x01: %N kişisinin mutesi açılamadı, cezası bulunmakta.\x10!ceza", client);
+		PrintToChatAll("[SM] \x07Hata\x01: %N kişisinin mutesi açılamadı, cezası bulunmakta.\x10!ceza #%d", client, GetClientOfUserId(client));
 	}
 }
 
@@ -1134,7 +1057,7 @@ public void BaseComm_OnClientGag(int client, bool gagState)
 	if (!gagState && Gagged[client])
 	{
 		BaseComm_SetClientGag(client, true);
-		PrintToChatAll("[SM] \x07Hata\x01: %N kişisinin gagı açılamadı, cezası bulunmakta.\x10!ceza", client);
+		PrintToChatAll("[SM] \x07Hata\x01: %N kişisinin gagı açılamadı, cezası bulunmakta.\x10!ceza #%d", client, GetClientOfUserId(client));
 	}
 }
 
@@ -1156,5 +1079,41 @@ bool FixText(char[] Fix, int size)
 	ReplaceString(Fix, size, "\"", "'", false);
 	ReplaceString(Fix, size, "\\", "", false);
 	ReplaceString(Fix, size, "~", "", false);
+	ReplaceString(Fix, size, "^", "", false);
+	ReplaceString(Fix, size, "'", "", false);
 	return true;
 }
+
+public void SendToDiscord(const char[] message)
+{
+	Handle request = SteamWorks_CreateHTTPRequest(k_EHTTPMethodPOST, webhook);
+	
+	SteamWorks_SetHTTPRequestGetOrPostParameter(request, "content", message);
+	SteamWorks_SetHTTPRequestHeaderValue(request, "Content-Type", "application/x-www-form-urlencoded");
+	
+	if (request == null || !SteamWorks_SetHTTPCallbacks(request, Callback_SendToDiscord) || !SteamWorks_SendHTTPRequest(request))
+	{
+		PrintToServer("[Steamworks Discord] Hata!");
+		delete request;
+	}
+}
+
+public int Callback_SendToDiscord(Handle hRequest, bool bFailure, bool bRequestSuccessful, EHTTPStatusCode eStatusCode)
+{
+	if (!bFailure && bRequestSuccessful)
+	{
+		if (eStatusCode != k_EHTTPStatusCode200OK && eStatusCode != k_EHTTPStatusCode204NoContent)
+		{
+			LogError("[Steamworks Discord] Hata kodu: [%i]", eStatusCode);
+			SteamWorks_GetHTTPResponseBodyCallback(hRequest, Callback_Response);
+		}
+	}
+	delete hRequest;
+	return 0;
+}
+
+public int Callback_Response(const char[] sData)
+{
+	PrintToServer("[Steamworks Discord] %s", sData);
+	return 0;
+} 
