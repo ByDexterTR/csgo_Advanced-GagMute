@@ -1,6 +1,5 @@
 #include <sourcemod>
 #include <steamworks>
-#include <sdktools_voice>
 #include <basecomm>
 
 #pragma semicolon 1
@@ -16,7 +15,7 @@ public Plugin myinfo =
 	name = "Gelişmiş Gag/Mute İşlemleri", 
 	author = "ByDexter", 
 	description = "", 
-	version = "1.1b", 
+	version = "1.2", 
 	url = "https://steamcommunity.com/id/ByDexterTR - ByDexter#5494"
 };
 
@@ -24,7 +23,7 @@ public void OnPluginStart()
 {
 	LoadTranslations("common.phrases");
 	
-	RegConsoleCmd("sm_ceza", Command_ceza, "sm_ceza");
+	RegConsoleCmd("sm_ceza", Command_ceza, "sm_ceza <#userid|name>");
 	
 	RegAdminCmd("sm_sgag", Command_sgag, ADMFLAG_CHAT, "sm_sgag <#userid|name> <dakika|1> [sebep]");
 	RegAdminCmd("sm_sungag", Command_sungag, ADMFLAG_CHAT, "sm_sungag <#userid|name>");
@@ -114,10 +113,12 @@ public void OnClientPostAdminCheck(int client)
 		delete TimerMute[client];
 		TimerMute[client] = null;
 	}
-	Gagged[client] = false; Muted[client] = false;
+	Gagged[client] = false;
+	Muted[client] = false;
 	char format[128];
 	GetClientAuthId(client, AuthId_Steam2, format, 128);
-	BaseComm_SetClientGag(client, false); BaseComm_SetClientMute(client, false);
+	BaseComm_SetClientGag(client, false);
+	BaseComm_SetClientMute(client, false);
 	
 	KeyValues kv = new KeyValues("ByDexter");
 	kv.ImportFromFile(sPath);
@@ -125,6 +126,7 @@ public void OnClientPostAdminCheck(int client)
 	if (kv.JumpToKey(format, false))
 	{
 		GetClientName(client, format, 128);
+		FixText(format, 128);
 		kv.SetString("lastname", format);
 		
 		FormatTime(format, 128, "%T - %F", GetTime());
@@ -160,7 +162,7 @@ public void OnClientPostAdminCheck(int client)
 		if (time >= 1)
 		{
 			Muted[client] = true;
-			Mute(client);
+			BaseComm_SetClientMute(client, true);
 		}
 		else
 		{
@@ -173,7 +175,7 @@ public void OnClientPostAdminCheck(int client)
 			if (time >= 1)
 			{
 				Muted[client] = true;
-				Mute(client);
+				BaseComm_SetClientMute(client, true);
 				TimerMute[client] = CreateTimer(60.0, MuteTimer, client, TIMER_REPEAT);
 			}
 			else
@@ -191,11 +193,9 @@ public Action Command_ceza(int client, int args)
 {
 	char format[128];
 	int target;
-	Panel panel = new Panel();
 	if (args == 0)
 	{
 		target = client;
-		panel.SetTitle("★ Cezaların\n__________________________\n ");
 	}
 	else
 	{
@@ -207,10 +207,22 @@ public Action Command_ceza(int client, int args)
 		}
 	}
 	
+	Panel panel = new Panel();
 	GetClientName(target, format, 128);
 	FixText(format, 128);
+	
 	Format(format, 256, "★ %s Cezaları\n__________________________\n ", format);
 	panel.SetTitle(format);
+	
+	if (!Gagged[target] && !Muted[target])
+	{
+		panel.DrawText("Perma/Süreli Gag: Yok\n ");
+		panel.DrawText("Perma/Süreli Mute: Yok\n ");
+		panel.DrawItem("Kapat");
+		panel.Send(client, Panel_CallBack, 15);
+		delete panel;
+		return Plugin_Handled;
+	}
 	
 	GetClientAuthId(target, AuthId_Steam2, format, 128);
 	
@@ -219,12 +231,6 @@ public Action Command_ceza(int client, int args)
 	
 	if (kv.JumpToKey(format, false))
 	{
-		GetClientName(target, format, 128);
-		kv.SetString("lastname", format);
-		
-		FormatTime(format, 128, "%T - %F", GetTime());
-		kv.SetString("lastjoin", format);
-		
 		int time = kv.GetNum("pgag", 0);
 		if (time >= 1)
 		{
@@ -269,15 +275,17 @@ public Action Command_ceza(int client, int args)
 			}
 		}
 		kv.Rewind();
-		kv.ExportToFile(sPath);
+		delete kv;
+		panel.DrawItem("Kapat");
+		panel.Send(client, Panel_CallBack, 15);
+		delete panel;
+		return Plugin_Handled;
 	}
-	else
-	{
-		panel.DrawText("Perma/Süreli Gag: Yok\n ");
-		panel.DrawText("Perma/Süreli Mute: Yok\n ");
-	}
-	delete kv;
 	
+	kv.Rewind();
+	delete kv;
+	panel.DrawText("Perma/Süreli Gag: Yok\n ");
+	panel.DrawText("Perma/Süreli Mute: Yok\n ");
 	panel.DrawItem("Kapat");
 	panel.Send(client, Panel_CallBack, 15);
 	delete panel;
@@ -648,7 +656,7 @@ public Action MuteTimer(Handle timer, int client)
 		if (time <= 0)
 		{
 			Muted[client] = false;
-			UnMute(client);
+			BaseComm_SetClientMute(client, false);
 			if (time == 0)
 			{
 				PrintToChatAll("[SM] \x10%N \x01süreli mutesi sona erdi.", client);
@@ -671,7 +679,7 @@ public Action MuteTimer(Handle timer, int client)
 				PrintToChat(client, "[SM] Süreli mutenin bitmesine \x04%d dakika\x01sı kaldı.", time);
 			}
 			Muted[client] = true;
-			Mute(client);
+			BaseComm_SetClientMute(client, true);
 		}
 		
 		kv.Rewind();
@@ -899,11 +907,12 @@ void CezaVer(int client, int admin, int time, const char[] reason, int ceza, boo
 			Format(message, 2000, "%s\n> **Admin**: `%s | %s`", message, format, steamid);
 		}
 		
+		GetClientAuthId(client, AuthId_Steam2, steamid, 32);
+		GetClientName(client, format, 128);
+		FixText(format, 128);
+		
 		if (time >= 1)
 		{
-			GetClientAuthId(client, AuthId_Steam2, steamid, 32);
-			GetClientName(client, format, 128);
-			FixText(format, 128);
 			Format(message, 2000, "%s\n> **Suçlu**: `%s | %s`\n> **Sebep**: `%s`\n> **Süre**: `%d dakika`", message, format, steamid, reason, time);
 		}
 		else
@@ -1012,42 +1021,11 @@ bool IsValidClient(int client, bool nobots = true)
 	return IsClientInGame(client);
 }
 
-void Mute(int client)
-{
-	SetClientListeningFlags(client, VOICE_MUTED);
-	BaseComm_SetClientMute(client, true);
-}
-
-void UnMute(int client)
-{
-	static ConVar cvDeadTalk = null;
-	
-	if (cvDeadTalk == null) {
-		cvDeadTalk = FindConVar("sm_deadtalk");
-	}
-	
-	if (cvDeadTalk == null) {
-		SetClientListeningFlags(client, VOICE_NORMAL);
-	}
-	else {
-		if (cvDeadTalk.IntValue == 1 && !IsPlayerAlive(client)) {
-			SetClientListeningFlags(client, VOICE_LISTENALL);
-		}
-		else if (cvDeadTalk.IntValue == 2 && !IsPlayerAlive(client)) {
-			SetClientListeningFlags(client, VOICE_TEAM);
-		}
-		else {
-			SetClientListeningFlags(client, VOICE_NORMAL);
-		}
-	}
-	BaseComm_SetClientMute(client, false);
-}
-
 public void BaseComm_OnClientMute(int client, bool muteState)
 {
 	if (!muteState && Muted[client])
 	{
-		Mute(client);
+		BaseComm_SetClientMute(client, true);
 		PrintToChatAll("[SM] \x07Hata\x01: %N kişisinin mutesi açılamadı, cezalı. \x10!ceza #%d", client, GetClientUserId(client));
 	}
 }
